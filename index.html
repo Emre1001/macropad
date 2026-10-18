@@ -391,21 +391,50 @@ function toast(msg, bad) {
   setTimeout(() => { t.classList.add("out"); setTimeout(() => t.remove(), 260) }, bad ? 3200 : 1800);
 }
 
-// ================= Fernzugriff (MQTT über Cloud-Broker) =================
+// ================= Fernzugriff (öffentlicher MQTT-Broker, Ende-zu-Ende verschlüsselt) =================
 // Auf GitHub Pages läuft die App ohne direkten Draht zum MacroPad: beide treffen sich beim Broker.
+// Jede Nachricht ist mit AES-256-GCM versiegelt (Schlüssel nur im Kopplungslink) und trägt einen Zeitstempel.
 const REMOTE = /github\.io$/.test(location.hostname) || new URLSearchParams(location.search).has("remote");
-const R = { cli: null, ok: false, seen: 0, rpcId: 0, wait: new Map(), cfg: null };
+const R = { cli: null, ok: false, seen: 0, rpcId: 0, wait: new Map(), cfg: null, key: null, nonces: [] };
 const b64e = s => btoa(unescape(encodeURIComponent(s))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const b64d = s => decodeURIComponent(escape(atob(s.replace(/-/g, "+").replace(/_/g, "/"))));
 function readLink(text) {
   const m = String(text).match(/[#&]c=([A-Za-z0-9_-]+)/);
   if (!m) return false;
-  try { const c = JSON.parse(b64d(m[1])); if (c.h && c.u && c.p && c.t) { store.set("remote", c); return true } } catch (_) {}
+  try { const c = JSON.parse(b64d(m[1])); if (c.h && c.t && /^[0-9a-f]{64}$/.test(c.k)) { store.set("remote", c); return true } } catch (_) {}
   return false;
 }
 if (REMOTE && readLink(location.hash)) history.replaceState(null, "", location.pathname + location.search);
 R.cfg = store.get("remote", null);
 const topic = t => `mp/${R.cfg.t}/${t}`;
+const AAD = new TextEncoder().encode("mp1");
+async function seal(kind, body) {
+  const t = Date.now(), plain = new Uint8Array(10 + body.length);
+  plain[0] = 1;
+  new DataView(plain.buffer).setBigUint64(1, BigInt(t));
+  plain[9] = kind.charCodeAt(0);
+  plain.set(body, 10);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv, additionalData: AAD }, R.key, plain));
+  const pkt = new Uint8Array(12 + ct.length);
+  pkt.set(iv); pkt.set(ct, 12);
+  return pkt;
+}
+async function unseal(buf) {
+  const d = new Uint8Array(buf);
+  if (d.length < 38) return null;
+  const nonce = Array.from(d.slice(0, 12)).join(",");
+  if (R.nonces.includes(nonce)) return null;
+  let plain;
+  try { plain = new Uint8Array(await crypto.subtle.decrypt({ name: "AES-GCM", iv: d.slice(0, 12), additionalData: AAD }, R.key, d.slice(12))) } catch (_) { return null }
+  if (plain[0] !== 2) return null;
+  const t = Number(new DataView(plain.buffer).getBigUint64(1));
+  if (Math.abs(Date.now() - t) > 120000) return null;
+  R.nonces.push(nonce); if (R.nonces.length > 128) R.nonces.shift();
+  return new TextDecoder().decode(plain.slice(10));
+}
+async function sendSealed(kind, body) { if (R.ok) R.cli.publish(topic("d"), await seal(kind, body)) }
+const sendJsonRemote = o => sendSealed("j", new TextEncoder().encode(typeof o === "string" ? o : JSON.stringify(o)));
 function loadMqtt() {
   return window.mqtt ? Promise.resolve() : new Promise((ok, bad) => {
     const sc = document.createElement("script");
@@ -415,22 +444,25 @@ function loadMqtt() {
 }
 async function connectRemote() {
   if (R.cli) return;
+  if (!window.crypto || !crypto.subtle) { toast("Browser unterstützt keine Verschlüsselung", true); return }
   try { await loadMqtt() } catch (_) { toast("MQTT-Bibliothek nicht ladbar", true); return }
-  const c = R.cfg;
-  R.cli = mqtt.connect(`wss://${c.h}:8884/mqtt`, { username: c.u, password: c.p, clientId: "mpweb-" + Math.random().toString(16).slice(2, 10), reconnectPeriod: 2500, connectTimeout: 10000, clean: true });
-  R.cli.on("connect", () => { R.ok = true; R.cli.subscribe([topic("ev"), topic("res")], () => hello()); updConn() });
+  const hexKey = R.cfg.k.match(/../g).map(x => parseInt(x, 16));
+  R.key = await crypto.subtle.importKey("raw", new Uint8Array(hexKey), "AES-GCM", false, ["encrypt", "decrypt"]);
+  R.cli = mqtt.connect(`wss://${R.cfg.h}:8884/mqtt`, { clientId: "mpweb-" + Math.random().toString(16).slice(2, 10), reconnectPeriod: 2500, connectTimeout: 10000, clean: true });
+  R.cli.on("connect", () => { R.ok = true; R.cli.subscribe(topic("c"), () => hello()); updConn() });
   R.cli.on("close", () => { R.ok = false; S.wsOk = false; updConn() });
-  R.cli.on("error", e => { if (/auth/i.test(e.message || "")) toast("Broker lehnt die Zugangsdaten ab", true) });
-  R.cli.on("message", (t, buf) => {
+  R.cli.on("message", async (t, buf) => {
+    const txt = await unseal(buf);
+    if (txt == null) return;  // fremd, manipuliert oder wiederholt
     R.seen = Date.now();
     if (!S.wsOk) { S.wsOk = true; updConn() }
     let m;
-    try { m = JSON.parse(new TextDecoder().decode(buf)) } catch (_) { return }
-    if (t.endsWith("/res")) { const w = R.wait.get(m.id); if (w) { R.wait.delete(m.id); w(m) } return }
+    try { m = JSON.parse(txt) } catch (_) { return }
+    if (m.id && "s" in m) { const w = R.wait.get(m.id); if (w) { R.wait.delete(m.id); w(m) } return }
     onEvent(m);
   });
 }
-function hello() { if (R.ok) R.cli.publish(topic("cmd"), '{"a":"hello"}') }
+function hello() { if (R.ok) sendJsonRemote({ a: "hello" }) }
 setInterval(() => { if (!REMOTE || !R.ok) return; hello(); if (S.wsOk && Date.now() - R.seen > 10000) { S.wsOk = false; updConn() } }, 5000);
 function rpc(p, b) {
   return new Promise(res => {
@@ -438,7 +470,7 @@ function rpc(p, b) {
     const id = String(++R.rpcId);
     const to = setTimeout(() => { R.wait.delete(id); res({ status: 0, ok: false, err: "timeout" }) }, 9000);
     R.wait.set(id, m => { clearTimeout(to); const b2 = m.b || {}; res({ status: m.s, ...b2, ok: m.s < 300 && b2.ok !== false }) });
-    R.cli.publish(topic("rpc"), JSON.stringify({ id, p, b: b || {} }));
+    sendJsonRemote({ id, p, b: b || {} });
   });
 }
 const REMOTE_API = { "/api/state": "state", "/api/config": "config", "/api/run": "run", "/api/power": "power", "/api/reboot": "reboot" };
@@ -498,10 +530,10 @@ function connectWs() {
 }
 document.addEventListener("visibilitychange", () => { if (!document.hidden && S.mode === "app") REMOTE ? hello() : connectWs() });
 function wsSend(o) {
-  if (REMOTE) { if (!R.ok) return false; R.cli.publish(topic("cmd"), typeof o === "string" ? o : JSON.stringify(o)); return true }
+  if (REMOTE) { if (!R.ok) return false; sendJsonRemote(o); return true }
   if (S.ws && S.ws.readyState === 1) { S.ws.send(typeof o === "string" ? o : JSON.stringify(o)); return true } return false }
 function wsBin(arr) {
-  if (REMOTE) { if (R.ok) R.cli.publish(topic("m"), new Uint8Array(new Int8Array(arr).buffer)); return }
+  if (REMOTE) { sendSealed("m", new Uint8Array(new Int8Array(arr).buffer)); return }
   if (S.ws && S.ws.readyState === 1 && S.ws.bufferedAmount < 2048) S.ws.send(new Int8Array(arr)) }
 function run(steps) { haptic(); if (!wsSend({ a: "steps", s: steps })) api("/api/run", { steps }) }
 const combo = v => run([{ t: "combo", v }]);
@@ -1167,27 +1199,21 @@ function settingsView() {
     if (REMOTE) return;
     const info = await api("/api/remote");
     if (!info.host) {
-      const host = h("input", { class: "field mono", placeholder: "xxxx.s1.eu.hivemq.cloud", autocapitalize: "off", spellcheck: "false" });
-      const user = h("input", { class: "field", placeholder: "Benutzer", autocapitalize: "off", spellcheck: "false" });
-      const pass = h("input", { class: "field", type: "password", placeholder: "Passwort", autocomplete: "new-password" });
       rem.replaceChildren(
-        h("div", { class: "item" }, h("div", { class: "t" }, h("b", {}, "Diese Seite von überall nutzen"), h("small", {}, "Über einen kostenlosen MQTT-Broker – ohne Router-Einstellungen."))),
-        h("div", { class: "item" }, h("div", { class: "t muted", style: { fontSize: "13.5px", lineHeight: 1.6 } },
-          "1. Auf ", h("span", { class: "mono" }, "console.hivemq.cloud"), " kostenlos registrieren, einen Serverless-Cluster anlegen.", h("br"),
-          "2. Unter „Access Management“ Zugangsdaten anlegen (Publish und Subscribe).", h("br"),
-          "3. Cluster-URL, Benutzer und Passwort hier eintragen.")),
-        h("div", { class: "item" }, h("div", { class: "grow stack" }, host, user, pwField(pass),
-          h("button", { class: "btn primary full", onclick: async () => {
-            const r = await api("/api/remote", { host: host.value, user: user.value, pass: pass.value });
-            r.ok ? (toast("Gespeichert – verbinde …"), setTimeout(drawRem, 4000), drawRem()) : toast("Bitte alle Felder ausfüllen", true) } }, "Sichern"))));
+        h("div", { class: "item" }, h("div", { class: "t" }, h("b", {}, "Diese Seite von überall nutzen"),
+          h("small", {}, "Kostenlos, ohne Account und ohne Router-Einstellungen. Ende-zu-Ende verschlüsselt über einen öffentlichen MQTT-Broker."))),
+        h("div", { class: "item" }, h("button", { class: "btn primary full", onclick: async () => {
+          const r = await api("/api/remote", { host: "" });
+          r.ok ? (toast("Aktiviert – verbinde …"), drawRem(), setTimeout(drawRem, 5000)) : toast("Fehlgeschlagen", true) } }, "Aktivieren")));
       return;
     }
-    const link = () => `${(c.remoteUrl || "").replace(/#.*$/, "")}#c=${b64e(JSON.stringify({ h: info.host, u: info.user, p: info.pass, t: info.id, n: c.name }))}`;
+    const link = () => `${(c.remoteUrl || "").replace(/#.*$/, "")}#c=${b64e(JSON.stringify({ h: info.host, t: info.id, k: info.key, n: c.name }))}`;
     rem.replaceChildren(
-      item("Broker", info.host, h("span", { class: "dot " + (info.ok ? "ok" : "bad"), title: info.ok ? "Verbunden" : "Nicht verbunden" })),
+      item("Broker", info.ok ? info.host + " · verbunden" : info.host + " · verbinde …", h("span", { class: "dot " + (info.ok ? "ok" : "bad") })),
+      item("Broker-Adresse", "Nur ändern, wenn der Standard-Broker ausfällt", text(info.host, "broker.hivemq.com", async v => { await api("/api/remote", { host: v }); drawRem() }, "mono")),
       h("div", { class: "item click", onclick: () => linkSheet(link()) }, icon("globe"), h("div", { class: "t" }, h("b", {}, "Link fürs Handy"), h("small", {}, "Einmal öffnen, danach überall nutzbar")), icon("chevron", "chev")),
       item("Adresse der Web-App", null, text(c.remoteUrl, "https://name.github.io/macropad/", v => set("remoteUrl", v))),
-      click("Neuen Schlüssel erzeugen", "Alte Links funktionieren danach nicht mehr", async () => { if (!confirm("Alle bisherigen Links ungültig machen?")) return; await api("/api/remote", { host: info.host, user: info.user, pass: info.pass, newId: true }); toast("Neuer Schlüssel"); drawRem() }),
+      click("Neuen Schlüssel erzeugen", "Alte Links funktionieren danach nicht mehr", async () => { if (!confirm("Alle bisherigen Links ungültig machen?")) return; await api("/api/remote", { host: info.host, newKey: true }); toast("Neuer Schlüssel"); drawRem() }),
       click("Fernzugriff entfernen", null, async () => { if (!confirm("Web-Fernzugriff entfernen?")) return; await api("/api/remote", { clear: true }); drawRem() }, true));
   };
   drawRem();
@@ -1277,7 +1303,7 @@ function upload(file) {
 
 function linkSheet(url) {
   sheet("Link fürs Handy", () => h("div", { class: "stack" },
-    h("p", { class: "muted", style: { margin: 0 } }, "Öffne diesen Link auf deinem Handy und füge die Seite zum Startbildschirm hinzu. Der Link enthält die Zugangsdaten – behandle ihn wie ein Passwort."),
+    h("p", { class: "muted", style: { margin: 0 } }, "Öffne diesen Link auf deinem Handy und füge die Seite zum Startbildschirm hinzu. Der Link enthält den Schlüssel – wer ihn hat, kann deinen PC steuern. Behandle ihn wie ein Passwort."),
     h("div", { class: "field mono", style: { height: "auto", padding: "12px 14px", wordBreak: "break-all", fontSize: "12px", userSelect: "all" } }, url),
     h("div", { class: "row" },
       h("button", { class: "btn grow", onclick: () => copy(url) }, icon("copy"), "Kopieren"),
