@@ -1,0 +1,1324 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f2f2f4" media="(prefers-color-scheme: light)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="MacroPad">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icon.svg">
+<link rel="apple-touch-icon" href="/icon.svg">
+<title>MacroPad</title>
+<style>
+:root{
+  --bg:#000;--bg-2:#0b0b0d;--surface:#141416;--surface-2:#1d1d20;--surface-3:#28282c;
+  --line:rgba(255,255,255,.07);--line-2:rgba(255,255,255,.12);
+  --text:#f5f5f7;--text-2:#a1a1a8;--text-3:#6b6b72;
+  --accent:#5e8bff;--accent-ink:#fff;--ok:#32d74b;--warn:#ff9f0a;--bad:#ff453a;
+  --glass:rgba(20,20,22,.72);--shadow:0 20px 60px rgba(0,0,0,.55);
+  --r-s:12px;--r:18px;--r-l:26px;
+  --ease:cubic-bezier(.2,.8,.2,1);--spring:cubic-bezier(.34,1.4,.64,1);
+  --tab-h:64px;--safe-b:env(safe-area-inset-bottom,0px);--safe-t:env(safe-area-inset-top,0px);
+  color-scheme:dark;
+}
+:root[data-theme=light]{
+  --bg:#f2f2f4;--bg-2:#e9e9ec;--surface:#fff;--surface-2:#f4f4f6;--surface-3:#e8e8ec;
+  --line:rgba(0,0,0,.06);--line-2:rgba(0,0,0,.11);
+  --text:#111113;--text-2:#5c5c63;--text-3:#94949b;
+  --accent:#3366ff;--glass:rgba(250,250,252,.78);--shadow:0 20px 60px rgba(0,0,0,.16);color-scheme:light;
+}
+html{transition:background-color .35s var(--ease)}
+body{transition:background-color .35s var(--ease),color .35s var(--ease)}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,"SF Pro Text","Segoe UI Variable Text","Segoe UI",Inter,Roboto,"Helvetica Neue",sans-serif;
+  -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;overscroll-behavior:none;font-feature-settings:"cv11","ss01"}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;border:0;background:none;padding:0;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:8px}
+svg.i{width:22px;height:22px;flex:none;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.mono{font-family:ui-monospace,"SF Mono","Cascadia Code",Menlo,Consolas,monospace;font-size:.92em}
+.muted{color:var(--text-2)}.dim{color:var(--text-3)}
+.row{display:flex;align-items:center;gap:10px}.grow{flex:1;min-width:0}
+.hide{display:none!important}
+
+/* ---------- Shell ---------- */
+#app{min-height:100%;display:flex}
+.nav{position:fixed;z-index:20;left:0;right:0;bottom:0;height:calc(var(--tab-h) + var(--safe-b));padding-bottom:var(--safe-b);
+  display:flex;background:var(--glass);backdrop-filter:saturate(180%) blur(24px);-webkit-backdrop-filter:saturate(180%) blur(24px);border-top:1px solid var(--line)}
+.nav-brand{display:none}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--text-3);font-size:11px;font-weight:500;letter-spacing:.01em;transition:color .2s var(--ease)}
+.tab svg.i{width:24px;height:24px;transition:transform .35s var(--spring)}
+.tab[aria-current=page]{color:var(--text)}
+.tab[aria-current=page] svg.i{transform:translateY(-1px) scale(1.06)}
+.tab:active svg.i{transform:scale(.88)}
+main{flex:1;min-width:0;padding:calc(var(--safe-t) + 18px) 16px calc(var(--tab-h) + var(--safe-b) + 24px)}
+.view{max-width:880px;margin:0 auto;animation:viewIn .42s var(--ease) both}
+@keyframes viewIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.top{display:flex;align-items:center;gap:12px;margin:2px 2px 18px}
+.top h1{font-size:30px;line-height:1.1;font-weight:700;letter-spacing:-.025em;margin:0;flex:1;min-width:0}
+.conn{display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 12px;border-radius:99px;background:var(--surface);border:1px solid var(--line);font-size:12.5px;color:var(--text-2);white-space:nowrap}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--text-3);flex:none;transition:background .3s}
+.dot.ok{background:var(--ok);box-shadow:0 0 0 3px color-mix(in srgb,var(--ok) 22%,transparent)}
+.dot.warn{background:var(--warn)}.dot.bad{background:var(--bad)}
+@media (min-width:900px){
+  .nav{top:0;bottom:0;right:auto;width:232px;height:auto;flex-direction:column;justify-content:flex-start;gap:2px;padding:22px 12px;border-top:0;border-right:1px solid var(--line)}
+  .nav-brand{display:flex;align-items:center;gap:10px;padding:4px 10px 22px;font-weight:650;font-size:16px;letter-spacing:-.01em}
+  .nav-brand svg{width:28px;height:28px}
+  .tab{flex:none;flex-direction:row;justify-content:flex-start;gap:12px;height:40px;padding:0 12px;border-radius:11px;font-size:14px;color:var(--text-2)}
+  .tab svg.i{width:20px;height:20px}
+  .tab:hover{background:var(--surface)}
+  .tab[aria-current=page]{background:var(--surface-2);color:var(--text)}
+  main{margin-left:232px;padding:36px 40px 48px}
+  .top h1{font-size:34px}
+}
+
+/* ---------- Bausteine ---------- */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-l);padding:18px}
+.section{margin:26px 0 10px;padding:0 4px;font-size:13px;font-weight:600;color:var(--text-2);letter-spacing:.01em}
+.section:first-child{margin-top:0}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:44px;padding:0 18px;border-radius:13px;background:var(--surface-2);border:1px solid var(--line);font-weight:560;
+  transition:transform .25s var(--spring),background .2s,opacity .2s;white-space:nowrap}
+.btn:active{transform:scale(.96)}
+.btn.primary{background:var(--text);color:var(--bg);border-color:transparent}
+.btn.accent{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+.btn.danger{color:var(--bad)}
+.btn.full{width:100%}
+.btn.sm{height:34px;padding:0 13px;border-radius:10px;font-size:13.5px}
+.btn[disabled]{opacity:.4;pointer-events:none}
+.icon-btn{width:40px;height:40px;border-radius:12px;display:inline-grid;place-items:center;color:var(--text-2);transition:background .2s,transform .25s var(--spring)}
+.icon-btn:hover{background:var(--surface-2);color:var(--text)}.icon-btn:active{transform:scale(.9)}
+.field{display:block;width:100%;height:46px;padding:0 14px;border-radius:13px;background:var(--surface-2);border:1px solid var(--line);outline:0;transition:border-color .2s,background .2s}
+.field:focus{border-color:color-mix(in srgb,var(--accent) 65%,transparent);background:var(--surface)}
+textarea.field{height:auto;min-height:96px;padding:12px 14px;resize:vertical;line-height:1.45}
+select.field{appearance:none;-webkit-appearance:none;padding-right:36px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%238e8e93' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center}
+label.lbl{display:block;font-size:13px;color:var(--text-2);margin:0 2px 7px;font-weight:500}
+.stack>*+*{margin-top:14px}
+.seg{display:flex;padding:3px;border-radius:12px;background:var(--surface-2);border:1px solid var(--line);position:relative}
+.seg button{flex:1;height:36px;border-radius:9px;font-size:13.5px;font-weight:560;color:var(--text-2);position:relative;z-index:1;transition:color .2s}
+.seg button[aria-pressed=true]{color:var(--text)}
+.seg .thumb{position:absolute;top:3px;bottom:3px;border-radius:9px;background:var(--surface-3);box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .32s var(--ease),width .32s var(--ease)}
+[data-theme=light] .seg .thumb{background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.12)}
+
+/* Listen im Einstellungsstil */
+.list{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.item{display:flex;align-items:center;gap:12px;min-height:54px;padding:10px 16px;position:relative}
+.item+.item::before{content:"";position:absolute;top:0;left:16px;right:0;height:1px;background:var(--line)}
+.item .t{flex:1;min-width:0}
+.item .t b{display:block;font-weight:520}
+.item .t small{display:block;color:var(--text-3);font-size:12.5px;margin-top:1px}
+.item .v{color:var(--text-2);font-size:14px;text-align:right;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.item.click{cursor:pointer;transition:background .15s}.item.click:active{background:var(--surface-2)}
+.item .field{height:38px;max-width:230px}
+.item .stack .field,.item .grow>.field,.item .pw .field{max-width:none;height:44px}
+.item input[type=range]{width:min(220px,45vw)}
+.chev{color:var(--text-3);width:18px;height:18px}
+@media (max-width:560px){
+  .item{flex-wrap:wrap;row-gap:6px}
+  .item .t{flex:1 1 150px}
+  .item>div[style*="width"]{width:100%!important}
+  .item input[type=range]{flex:1;width:auto}
+  .item>.field{max-width:none;flex:1 1 100%}
+}
+
+.switch{position:relative;width:51px;height:31px;flex:none}
+.switch input{position:absolute;inset:0;opacity:0;margin:0;cursor:pointer}
+.switch span{position:absolute;inset:0;border-radius:99px;background:var(--surface-3);transition:background .25s var(--ease);pointer-events:none}
+.switch span::after{content:"";position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.25);transition:transform .32s var(--spring)}
+.switch input:checked+span{background:var(--ok)}
+.switch input:checked+span::after{transform:translateX(20px)}
+
+input[type=range]{-webkit-appearance:none;appearance:none;height:28px;background:transparent}
+input[type=range]::-webkit-slider-runnable-track{height:4px;border-radius:4px;background:linear-gradient(var(--text),var(--text)) 0/var(--fill,50%) 100% no-repeat,var(--surface-3)}
+input[type=range]::-moz-range-track{height:4px;border-radius:4px;background:var(--surface-3)}
+input[type=range]::-moz-range-progress{height:4px;border-radius:4px;background:var(--text)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:24px;height:24px;margin-top:-10px;border-radius:50%;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.3),0 0 0 .5px rgba(0,0,0,.1)}
+input[type=range]::-moz-range-thumb{width:24px;height:24px;border:0;border-radius:50%;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+
+/* ---------- Pad ---------- */
+.chips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin:0 -16px 16px;padding:2px 16px}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;height:36px;padding:0 15px;border-radius:99px;background:var(--surface);border:1px solid var(--line);color:var(--text-2);font-size:14px;font-weight:560;
+  transition:background .25s var(--ease),color .25s,transform .25s var(--spring)}
+.chip:active{transform:scale(.95)}
+.chip[aria-pressed=true]{background:var(--text);color:var(--bg);border-color:transparent}
+.chip.add{display:inline-grid;place-items:center;width:36px;padding:0}
+.pad{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.key{--c:#8e8e93;position:relative;aspect-ratio:1/1;border-radius:24px;background:var(--surface);border:1px solid var(--line);text-align:left;padding:14px 14px 13px;display:flex;flex-direction:column;justify-content:flex-end;overflow:hidden;
+  transition:transform .32s var(--spring),background .25s var(--ease),border-color .25s,box-shadow .3s}
+.key::before{content:"";position:absolute;inset:0;background:radial-gradient(120% 90% at 0% 0%,color-mix(in srgb,var(--c) 26%,transparent),transparent 62%);opacity:.75;transition:opacity .3s}
+.key .num{position:absolute;top:13px;right:14px;font-size:12px;color:var(--text-3);font-variant-numeric:tabular-nums;font-weight:560}
+.key .pip{position:absolute;top:15px;left:15px;width:9px;height:9px;border-radius:50%;background:var(--c);box-shadow:0 0 12px color-mix(in srgb,var(--c) 70%,transparent)}
+.key .lb{position:relative;font-weight:640;font-size:15.5px;letter-spacing:-.01em;line-height:1.2;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;hyphens:auto;-webkit-hyphens:auto}
+@media (max-width:420px){.key{padding:12px 12px 11px;border-radius:20px}.key .lb{font-size:14px}.key .hint{font-size:11.5px}.conn{width:30px;padding:0;justify-content:center;font-size:0;gap:0}}
+.key .hint{position:relative;font-size:12px;color:var(--text-3);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.key:active,.key.on{transform:scale(.955);border-color:color-mix(in srgb,var(--c) 60%,transparent);background:color-mix(in srgb,var(--c) 14%,var(--surface))}
+.key.on::before,.key:active::before{opacity:1}
+.key.on{box-shadow:0 0 0 4px color-mix(in srgb,var(--c) 16%,transparent),0 10px 40px color-mix(in srgb,var(--c) 30%,transparent)}
+.editing .key{animation:jiggle .32s ease-in-out infinite alternate}
+.editing .key:nth-child(2n){animation-delay:-.16s}
+@keyframes jiggle{from{transform:rotate(-.7deg)}to{transform:rotate(.7deg)}}
+.editing .key .num{color:var(--text);background:var(--surface-3);border-radius:99px;width:22px;height:22px;display:grid;place-items:center;top:10px;right:10px}
+.pad-lower{display:grid;grid-template-columns:auto 1fr;gap:12px;margin-top:12px;align-items:stretch}
+.dpad{position:relative;width:184px;height:184px;border-radius:50%;background:var(--surface);border:1px solid var(--line)}
+.dpad button{position:absolute;display:grid;place-items:center;color:var(--text-2);transition:color .2s,background .2s,transform .25s var(--spring)}
+.dpad .d{width:60px;height:60px;border-radius:18px}
+.dpad .d:active,.dpad .d.on{color:var(--text);background:var(--surface-3);transform:scale(.92)}
+.dpad .u{top:6px;left:62px}.dpad .dn{bottom:6px;left:62px}.dpad .l{left:6px;top:62px}.dpad .r{right:6px;top:62px}
+.dpad .c{top:57px;left:57px;width:70px;height:70px;border-radius:50%;background:var(--surface-2);border:1px solid var(--line-2);font-size:12px;font-weight:600;color:var(--text-2)}
+.dpad .c:active,.dpad .c.on{background:var(--text);color:var(--bg);transform:scale(.93)}
+.media{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:10px;border-radius:var(--r-l);background:var(--surface);border:1px solid var(--line)}
+.media button{display:grid;place-items:center;border-radius:16px;min-height:52px;color:var(--text);transition:background .2s,transform .25s var(--spring)}
+.media button:active{background:var(--surface-3);transform:scale(.92)}
+.media svg.i{width:24px;height:24px}
+.media .play{background:var(--surface-2)}
+.joy-mode{font-size:12.5px;color:var(--text-3);text-align:center;margin-top:10px}
+@media (max-width:520px){.pad-lower{grid-template-columns:1fr}.dpad{margin:0 auto}}
+@media (min-width:900px){.pad{gap:16px}.key{padding:18px}.key .lb{font-size:17px}}
+
+/* ---------- Trackpad ---------- */
+.tp-wrap{display:flex;flex-direction:column;gap:12px;height:calc(100dvh - var(--tab-h) - var(--safe-b) - var(--safe-t) - 112px);min-height:340px}
+.tp{flex:1;position:relative;border-radius:28px;background:var(--surface);border:1px solid var(--line);touch-action:none;user-select:none;-webkit-user-select:none;overflow:hidden;cursor:crosshair}
+.tp::after{content:"";position:absolute;inset:0;background-image:radial-gradient(var(--line-2) 1px,transparent 1.2px);background-size:22px 22px;opacity:.5;pointer-events:none}
+.tp .hint{position:absolute;inset:0;display:grid;place-items:center;text-align:center;color:var(--text-3);font-size:13.5px;line-height:1.8;transition:opacity .5s;pointer-events:none}
+.tp .touch{position:absolute;width:56px;height:56px;margin:-28px 0 0 -28px;border-radius:50%;background:color-mix(in srgb,var(--text) 10%,transparent);border:1px solid var(--line-2);pointer-events:none;transition:opacity .25s,transform .25s var(--ease)}
+.mbtns{display:grid;grid-template-columns:1fr .5fr 1fr;gap:10px;height:64px}
+.mbtns button{border-radius:20px;background:var(--surface);border:1px solid var(--line);font-size:13px;font-weight:560;color:var(--text-2);transition:background .15s,transform .25s var(--spring)}
+.mbtns button:active,.mbtns button.on{background:var(--surface-3);color:var(--text);transform:scale(.97)}
+.tp-bar{display:flex;gap:8px;align-items:center}
+
+/* ---------- Tastatur ---------- */
+.kgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.kgrid.c3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.kgrid .k{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.keys-split{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:start}
+@media (max-width:560px){.keys-split{grid-template-columns:1fr}.kgrid.sc{grid-template-columns:repeat(3,minmax(0,1fr))}.k{font-size:13px}}
+main{overflow-x:hidden}
+.k{height:52px;border-radius:14px;background:var(--surface);border:1px solid var(--line);font-size:13.5px;font-weight:560;display:flex;align-items:center;justify-content:center;gap:6px;padding:0 6px;text-align:center;line-height:1.15;
+  transition:background .15s,transform .25s var(--spring),color .2s}
+.k:active{background:var(--surface-3);transform:scale(.94)}
+.k[aria-pressed=true]{background:var(--text);color:var(--bg)}
+.k small{display:block;font-size:11px;color:var(--text-3);font-weight:500}
+.k.tall{flex-direction:column;height:62px;gap:2px}
+.fkeys{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin:0 -16px;padding:0 16px}
+.fkeys::-webkit-scrollbar{display:none}
+.fkeys .k{flex:none;width:58px}
+.arrows{display:grid;grid-template-columns:repeat(3,58px);grid-template-rows:repeat(2,52px);gap:8px;justify-content:center}
+.live{position:relative}
+.live .field{padding-right:52px}
+.live .send{position:absolute;right:6px;bottom:6px;width:38px;height:38px;border-radius:11px;background:var(--text);color:var(--bg);display:grid;place-items:center;transition:transform .25s var(--spring),opacity .2s}
+.live .send:active{transform:scale(.9)}
+.live-on{border-color:color-mix(in srgb,var(--ok) 60%,transparent)!important}
+
+/* ---------- PC ---------- */
+.hero{display:flex;align-items:center;gap:16px;padding:20px}
+.hero .big{width:56px;height:56px;border-radius:18px;display:grid;place-items:center;background:var(--surface-2);flex:none;transition:background .4s,color .4s}
+.hero .big svg.i{width:28px;height:28px}
+.hero.on .big{background:color-mix(in srgb,var(--ok) 16%,transparent);color:var(--ok)}
+.hero.sleep .big{background:color-mix(in srgb,var(--warn) 16%,transparent);color:var(--warn)}
+.hero h2{margin:0;font-size:20px;font-weight:650;letter-spacing:-.015em}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--line);margin:0 -18px -18px}
+.stats div{padding:12px 18px;min-width:0}.stats div+div{border-left:1px solid var(--line)}
+@media (max-width:420px){.stats div{padding:11px 12px}.stats b{font-size:12.5px}}
+.stats small{display:block;font-size:11.5px;color:var(--text-3);font-weight:500}
+.stats b{font-weight:560;font-size:14px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+.pgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+@media (min-width:640px){.pgrid{grid-template-columns:repeat(4,1fr)}}
+.pbtn{--c:var(--text);position:relative;height:96px;border-radius:22px;background:var(--surface);border:1px solid var(--line);display:flex;flex-direction:column;justify-content:space-between;align-items:flex-start;padding:15px;text-align:left;overflow:hidden;
+  transition:transform .3s var(--spring),background .2s}
+.pbtn:active{transform:scale(.96)}
+.pbtn svg.i{color:var(--c)}
+.pbtn b{font-weight:600;font-size:14.5px;position:relative}
+.pbtn small{display:block;font-size:11.5px;color:var(--text-3);font-weight:500;margin-top:1px}
+.pbtn .fill{position:absolute;inset:0;background:color-mix(in srgb,var(--c) 22%,transparent);transform-origin:left;transform:scaleX(var(--p,0));pointer-events:none}
+.pbtn.danger{--c:var(--bad)}.pbtn.warn{--c:var(--warn)}.pbtn.good{--c:var(--ok)}.pbtn.blue{--c:var(--accent)}
+.bars{display:inline-flex;align-items:flex-end;gap:2px;height:12px}
+.bars i{width:3px;border-radius:1px;background:var(--text-3)}
+.bars i.on{background:var(--text)}
+.bars i:nth-child(1){height:4px}.bars i:nth-child(2){height:8px}.bars i:nth-child(3){height:12px}
+
+/* ---------- Sheet ---------- */
+.scrim{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.5);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);animation:fade .3s var(--ease) both}
+.scrim.out{animation:fade .25s var(--ease) reverse both}
+@keyframes fade{from{opacity:0}}
+.sheet{position:fixed;z-index:51;left:0;right:0;bottom:0;max-height:92dvh;display:flex;flex-direction:column;background:var(--bg-2);border-radius:28px 28px 0 0;box-shadow:var(--shadow);animation:up .45s var(--ease) both;padding-bottom:var(--safe-b)}
+[data-theme=light] .sheet{background:var(--bg)}
+.sheet.out{animation:up .3s var(--ease) reverse both}
+@keyframes up{from{transform:translateY(100%)}}
+.sheet .grab{width:38px;height:5px;border-radius:5px;background:var(--line-2);margin:8px auto 0;flex:none}
+.sheet header{display:flex;align-items:center;gap:8px;padding:10px 12px 10px 20px;flex:none}
+.sheet header h3{flex:1;margin:0;font-size:18px;font-weight:650;letter-spacing:-.01em}
+.sheet .body{overflow-y:auto;padding:4px 20px 18px;overscroll-behavior:contain}
+.sheet footer{display:flex;gap:10px;padding:12px 20px 16px;border-top:1px solid var(--line);flex:none}
+.sheet footer .btn{flex:1}
+@media (min-width:900px){
+  .sheet{left:50%;top:50%;bottom:auto;right:auto;width:560px;max-height:84dvh;border-radius:26px;transform:translate(-50%,-50%);animation:pop .38s var(--spring) both;padding-bottom:0}
+  .sheet.out{animation:pop .2s var(--ease) reverse both}
+  .sheet .grab{display:none}
+  @keyframes pop{from{opacity:0;transform:translate(-50%,-48%) scale(.96)}}
+}
+.swatches{display:flex;gap:10px;flex-wrap:wrap}
+.sw{width:34px;height:34px;border-radius:50%;background:var(--c);position:relative;transition:transform .25s var(--spring)}
+.sw:active{transform:scale(.88)}
+.sw[aria-pressed=true]::after{content:"";position:absolute;inset:-4px;border-radius:50%;border:2px solid var(--text)}
+.presets{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin:0 -20px;padding:0 20px}
+.presets::-webkit-scrollbar{display:none}
+.presets .chip{height:34px;font-size:13px}
+.step{display:grid;grid-template-columns:132px 1fr auto;gap:8px;align-items:center;padding:8px;border-radius:16px;background:var(--surface);border:1px solid var(--line);animation:viewIn .3s var(--ease) both}
+.step+.step{margin-top:8px}
+.step .field{height:42px;border-radius:11px}
+.step .acts{display:flex}
+.step .acts .icon-btn{width:34px;height:34px}
+@media (max-width:520px){.step{grid-template-columns:1fr auto}.step .val{grid-column:1/-1;grid-row:2}}
+.rec{border-color:var(--bad)!important;animation:recPulse 1.2s ease-in-out infinite}
+@keyframes recPulse{50%{box-shadow:0 0 0 4px color-mix(in srgb,var(--bad) 22%,transparent)}}
+
+/* ---------- Toast ---------- */
+.toasts{position:fixed;z-index:80;left:0;right:0;bottom:calc(var(--tab-h) + var(--safe-b) + 14px);display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none}
+@media (min-width:900px){.toasts{bottom:28px;left:232px}}
+.toast{display:flex;align-items:center;gap:9px;padding:11px 16px;border-radius:99px;background:var(--text);color:var(--bg);font-size:14px;font-weight:560;box-shadow:var(--shadow);animation:toast .45s var(--spring) both;max-width:calc(100vw - 32px)}
+.toast.bad{background:var(--bad);color:#fff}
+.toast.out{animation:toast .25s var(--ease) reverse both}
+.toast svg.i{width:18px;height:18px}
+@keyframes toast{from{opacity:0;transform:translateY(14px) scale(.96)}}
+
+/* ---------- Einrichtung / Login ---------- */
+.solo{min-height:100dvh;width:100%;display:grid;place-items:center;padding:calc(var(--safe-t) + 24px) 20px calc(var(--safe-b) + 24px)}
+.solo .box{width:100%;max-width:420px;animation:viewIn .5s var(--ease) both}
+.logo{width:64px;height:64px;margin-bottom:22px}
+.solo h1{font-size:32px;line-height:1.1;letter-spacing:-.03em;margin:0 0 10px;font-weight:720}
+.solo p.lead{color:var(--text-2);margin:0 0 28px;font-size:16px}
+.steps-ind{display:flex;gap:6px;margin-bottom:26px}
+.steps-ind i{height:4px;flex:1;border-radius:4px;background:var(--surface-3);transition:background .4s var(--ease)}
+.steps-ind i.on{background:var(--text)}
+.nets{max-height:46dvh;overflow-y:auto}
+.net .t b{font-weight:520}
+.net.sel{background:var(--surface-2)}
+.spin{width:20px;height:20px;border-radius:50%;border:2px solid var(--line-2);border-top-color:var(--text);animation:spin .8s linear infinite;flex:none}
+.spin.lg{width:44px;height:44px;border-width:3px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.pw{position:relative}.pw .field{padding-right:48px}
+.pw .icon-btn{position:absolute;right:3px;top:3px}
+.err{color:var(--bad);font-size:13.5px;min-height:20px;margin-top:8px}
+.big-code{font:700 34px/1 ui-monospace,"SF Mono",Menlo,monospace;letter-spacing:.18em;text-align:center;padding:18px;border-radius:var(--r);background:var(--surface-2);user-select:all}
+.ok-mark{width:64px;height:64px;border-radius:50%;background:color-mix(in srgb,var(--ok) 16%,transparent);color:var(--ok);display:grid;place-items:center;margin-bottom:22px;animation:popIn .5s var(--spring) both}
+.ok-mark svg.i{width:32px;height:32px;stroke-width:2.4}
+@keyframes popIn{from{transform:scale(.4);opacity:0}}
+.splash{position:fixed;inset:0;display:grid;place-items:center}
+
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<div id="app"><div class="splash"><div class="spin lg"></div></div></div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+<script>
+"use strict";
+// ================= Grundlagen =================
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+function h(tag, attrs, ...kids) {
+  const e = document.createElementNS(tag === "svg" || tag === "path" ? "http://www.w3.org/2000/svg" : "http://www.w3.org/1999/xhtml", tag);
+  for (const k in attrs || {}) {
+    const v = attrs[k];
+    if (v == null || v === false) continue;
+    if (k === "class") e.setAttribute("class", v);
+    else if (k === "style" && typeof v === "object") for (const p in v) p.startsWith("--") ? e.style.setProperty(p, v[p]) : e.style[p] = v[p];
+    else if (k.startsWith("on") && typeof v === "function") e.addEventListener(k.slice(2), v);
+    else if (k === "html") e.innerHTML = v;
+    else if (k === "value" || k === "checked") e[k] = v;
+    else e.setAttribute(k, v === true ? "" : v);
+  }
+  for (const c of kids.flat(9)) if (c != null && c !== false) e.append(c.nodeType ? c : document.createTextNode(c));
+  return e;
+}
+const clamp8 = v => Math.max(-127, Math.min(127, v));
+const haptic = (ms = 8) => { try { navigator.vibrate && navigator.vibrate(ms) } catch (_) {} };
+const store = {
+  get(k, d) { try { const v = localStorage.getItem("mp." + k); return v == null ? d : JSON.parse(v) } catch (_) { return d } },
+  set(k, v) { try { localStorage.setItem("mp." + k, JSON.stringify(v)) } catch (_) {} }
+};
+
+// Icons (24er Raster, Kontur)
+const IP = {
+  pad: '<rect x="3.5" y="3.5" width="7" height="7" rx="2"/><rect x="13.5" y="3.5" width="7" height="7" rx="2"/><rect x="3.5" y="13.5" width="7" height="7" rx="2"/><rect x="13.5" y="13.5" width="7" height="7" rx="2"/>',
+  mouse: '<rect x="3" y="4" width="18" height="16" rx="4"/><path d="M3 15h18M12 15v5"/>',
+  keyboard: '<rect x="2.5" y="6" width="19" height="12" rx="3"/><path d="M6.5 10h.01M10 10h.01M13.5 10h.01M17 10h.01M8 14h8"/>',
+  pc: '<rect x="3" y="4" width="18" height="12" rx="2.5"/><path d="M8.5 20h7M12 16v4"/>',
+  settings: '<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>',
+  power: '<path d="M12 3.5v8"/><path d="M6.7 6.6a7.5 7.5 0 1 0 10.6 0"/>',
+  restart: '<path d="M20 12a8 8 0 1 1-2.4-5.7"/><path d="M20 4v4.5h-4.5"/>',
+  moon: '<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>',
+  snow: '<path d="M12 3v18M4.2 7.5l15.6 9M4.2 16.5l15.6-9"/><path d="M9.5 4.5 12 6l2.5-1.5M9.5 19.5 12 18l2.5 1.5"/>',
+  lock: '<rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/>',
+  logout: '<path d="M14 4h3.5A2.5 2.5 0 0 1 20 6.5v11a2.5 2.5 0 0 1-2.5 2.5H14"/><path d="M10 16l-4-4 4-4M6 12h10"/>',
+  sun: '<circle cx="12" cy="12" r="3.8"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6 6 6M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"/>',
+  bolt: '<path d="M13 3 5 13.5h6L10 21l8-10.5h-6z"/>',
+  play: '<path d="M8 5.5v13l10.5-6.5z"/>',
+  pause: '<path d="M8.5 5.5v13M15.5 5.5v13"/>',
+  playpause: '<path d="M4.5 6v12l8-6zM15.5 6v12M19.5 6v12"/>',
+  next: '<path d="M5 6v12l8.5-6zM18.5 6v12"/>',
+  prev: '<path d="M19 6v12l-8.5-6zM5.5 6v12"/>',
+  volup: '<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/>',
+  voldown: '<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 0 1 0 6"/>',
+  mute: '<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/>',
+  up: '<path d="M12 18V6M6.5 11.5 12 6l5.5 5.5"/>', down: '<path d="M12 6v12M6.5 12.5 12 18l5.5-5.5"/>',
+  left: '<path d="M18 12H6M11.5 6.5 6 12l5.5 5.5"/>', right: '<path d="M6 12h12M12.5 6.5 18 12l-5.5 5.5"/>',
+  chevron: '<path d="M9.5 6l6 6-6 6"/>', back: '<path d="M14.5 6l-6 6 6 6"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>', x: '<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>',
+  check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>', trash: '<path d="M4.5 7h15M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13"/>',
+  edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>', copy: '<rect x="8.5" y="8.5" width="12" height="12" rx="2.5"/><path d="M15.5 8.5V6a2.5 2.5 0 0 0-2.5-2.5H6A2.5 2.5 0 0 0 3.5 6v7A2.5 2.5 0 0 0 6 15.5h2.5"/>',
+  eye: '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/>',
+  wifi: '<path d="M2.5 9a14 14 0 0 1 19 0M5.5 12.5a9.5 9.5 0 0 1 13 0M8.5 16a5 5 0 0 1 7 0"/><path d="M12 19.5h.01"/>',
+  send: '<path d="M12 19V5M6 11l6-6 6 6"/>', record: '<circle cx="12" cy="12" r="6"/>',
+  up2: '<path d="M7 14l5-5 5 5"/>', down2: '<path d="M7 10l5 5 5-5"/>', dup: '<rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>',
+  terminal: '<rect x="3" y="4.5" width="18" height="15" rx="3"/><path d="M7 9.5l3 2.5-3 2.5M12.5 15H17"/>',
+  globe: '<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.5 2.6 3.5 5.4 3.5 8.5s-1 5.9-3.5 8.5c-2.5-2.6-3.5-5.4-3.5-8.5s1-5.9 3.5-8.5z"/>',
+  chat: '<path d="M4 18.5V6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v8a2.5 2.5 0 0 1-2.5 2.5H8z"/>',
+  info: '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5M12 8h.01"/>',
+};
+const icon = (n, cls = "") => h("span", { html: `<svg class="i ${cls}" viewBox="0 0 24 24" aria-hidden="true">${IP[n] || ""}</svg>`, style: { display: "contents" } });
+const LOGO = () => h("span", { style: { display: "contents" }, html: '<svg class="logo" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="currentColor" opacity=".08"/><g fill="currentColor"><rect x="13" y="14" width="10.5" height="10.5" rx="3"/><rect x="26.75" y="14" width="10.5" height="10.5" rx="3"/><rect x="40.5" y="14" width="10.5" height="10.5" rx="3"/><rect x="13" y="28" width="10.5" height="10.5" rx="3"/><rect x="26.75" y="28" width="10.5" height="10.5" rx="3"/><rect x="40.5" y="28" width="10.5" height="10.5" rx="3"/></g><circle cx="32" cy="49" r="5" fill="#5e8bff"/></svg>' });
+
+function toast(msg, bad) {
+  const t = h("div", { class: "toast" + (bad ? " bad" : "") }, icon(bad ? "info" : "check"), msg);
+  $("#toasts").append(t);
+  setTimeout(() => { t.classList.add("out"); setTimeout(() => t.remove(), 260) }, bad ? 3200 : 1800);
+}
+
+// ================= Fernzugriff (MQTT über Cloud-Broker) =================
+// Auf GitHub Pages läuft die App ohne direkten Draht zum MacroPad: beide treffen sich beim Broker.
+const REMOTE = /github\.io$/.test(location.hostname) || new URLSearchParams(location.search).has("remote");
+const R = { cli: null, ok: false, seen: 0, rpcId: 0, wait: new Map(), cfg: null };
+const b64e = s => btoa(unescape(encodeURIComponent(s))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+const b64d = s => decodeURIComponent(escape(atob(s.replace(/-/g, "+").replace(/_/g, "/"))));
+function readLink(text) {
+  const m = String(text).match(/[#&]c=([A-Za-z0-9_-]+)/);
+  if (!m) return false;
+  try { const c = JSON.parse(b64d(m[1])); if (c.h && c.u && c.p && c.t) { store.set("remote", c); return true } } catch (_) {}
+  return false;
+}
+if (REMOTE && readLink(location.hash)) history.replaceState(null, "", location.pathname + location.search);
+R.cfg = store.get("remote", null);
+const topic = t => `mp/${R.cfg.t}/${t}`;
+function loadMqtt() {
+  return window.mqtt ? Promise.resolve() : new Promise((ok, bad) => {
+    const sc = document.createElement("script");
+    sc.src = "https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js";
+    sc.onload = ok; sc.onerror = bad; document.head.append(sc);
+  });
+}
+async function connectRemote() {
+  if (R.cli) return;
+  try { await loadMqtt() } catch (_) { toast("MQTT-Bibliothek nicht ladbar", true); return }
+  const c = R.cfg;
+  R.cli = mqtt.connect(`wss://${c.h}:8884/mqtt`, { username: c.u, password: c.p, clientId: "mpweb-" + Math.random().toString(16).slice(2, 10), reconnectPeriod: 2500, connectTimeout: 10000, clean: true });
+  R.cli.on("connect", () => { R.ok = true; R.cli.subscribe([topic("ev"), topic("res")], () => hello()); updConn() });
+  R.cli.on("close", () => { R.ok = false; S.wsOk = false; updConn() });
+  R.cli.on("error", e => { if (/auth/i.test(e.message || "")) toast("Broker lehnt die Zugangsdaten ab", true) });
+  R.cli.on("message", (t, buf) => {
+    R.seen = Date.now();
+    if (!S.wsOk) { S.wsOk = true; updConn() }
+    let m;
+    try { m = JSON.parse(new TextDecoder().decode(buf)) } catch (_) { return }
+    if (t.endsWith("/res")) { const w = R.wait.get(m.id); if (w) { R.wait.delete(m.id); w(m) } return }
+    onEvent(m);
+  });
+}
+function hello() { if (R.ok) R.cli.publish(topic("cmd"), '{"a":"hello"}') }
+setInterval(() => { if (!REMOTE || !R.ok) return; hello(); if (S.wsOk && Date.now() - R.seen > 10000) { S.wsOk = false; updConn() } }, 5000);
+function rpc(p, b) {
+  return new Promise(res => {
+    if (!R.ok) return res({ status: 0, ok: false, err: "net" });
+    const id = String(++R.rpcId);
+    const to = setTimeout(() => { R.wait.delete(id); res({ status: 0, ok: false, err: "timeout" }) }, 9000);
+    R.wait.set(id, m => { clearTimeout(to); const b2 = m.b || {}; res({ status: m.s, ...b2, ok: m.s < 300 && b2.ok !== false }) });
+    R.cli.publish(topic("rpc"), JSON.stringify({ id, p, b: b || {} }));
+  });
+}
+const REMOTE_API = { "/api/state": "state", "/api/config": "config", "/api/run": "run", "/api/power": "power", "/api/reboot": "reboot" };
+
+async function api(path, body, method) {
+  if (REMOTE) {
+    const p = REMOTE_API[path];
+    if (!p) { toast("Nur im Heimnetz verfügbar", true); return { status: 0, ok: false, err: "local" } }
+    return rpc(p, body);
+  }
+  try {
+    const r = await fetch(path, {
+      method: method || (body !== undefined ? "POST" : "GET"),
+      headers: body !== undefined ? { "Content-Type": "application/json" } : {},
+      body: body !== undefined ? JSON.stringify(body) : undefined, credentials: "same-origin", cache: "no-store"
+    });
+    let j = {};
+    try { j = await r.json() } catch (_) {}
+    if (r.status === 401 && S.mode === "app") { S.mode = "login"; render() }
+    return { status: r.status, ...j, ok: r.ok && j.ok !== false };
+  } catch (e) { return { status: 0, ok: false, err: "net" } }
+}
+
+// ================= Darstellung (System / Hell / Dunkel) =================
+const darkMq = matchMedia("(prefers-color-scheme: dark)");
+function applyTheme() {
+  const pref = store.get("theme", "system");
+  const t = pref === "system" ? (darkMq.matches ? "dark" : "light") : pref;
+  document.documentElement.dataset.theme = t;
+  $$('meta[name="theme-color"]').forEach(m => m.content = t === "dark" ? "#000000" : "#f2f2f4");
+}
+darkMq.addEventListener("change", applyTheme);
+applyTheme();
+
+// ================= Zustand =================
+const S = { mode: null, cfg: null, status: {}, tab: store.get("tab", "pad"), editing: false, ws: null, wsOk: false };
+const os = () => (S.cfg && S.cfg.os) || "windows";
+
+let saveTimer;
+function saveCfg(now) {
+  clearTimeout(saveTimer);
+  const go = async () => { const r = await api("/api/config", S.cfg); r.ok ? toast("Gespeichert") : toast("Speichern fehlgeschlagen", true) };
+  if (now) return go();
+  saveTimer = setTimeout(go, 650);
+}
+
+// ================= WebSocket =================
+let backoff = 400, wsTimer;
+function connectWs() {
+  if (S.ws && S.ws.readyState <= 1) return;
+  const ws = new WebSocket(`ws://${location.host}/ws`);
+  ws.binaryType = "arraybuffer";
+  S.ws = ws;
+  ws.onopen = () => { S.wsOk = true; backoff = 400; updConn() };
+  ws.onclose = () => { S.wsOk = false; updConn(); if (S.mode === "app") { clearTimeout(wsTimer); wsTimer = setTimeout(connectWs, backoff = Math.min(backoff * 1.8, 6000)) } };
+  ws.onmessage = e => { try { onEvent(JSON.parse(e.data)) } catch (_) {} };
+}
+document.addEventListener("visibilitychange", () => { if (!document.hidden && S.mode === "app") REMOTE ? hello() : connectWs() });
+function wsSend(o) {
+  if (REMOTE) { if (!R.ok) return false; R.cli.publish(topic("cmd"), typeof o === "string" ? o : JSON.stringify(o)); return true }
+  if (S.ws && S.ws.readyState === 1) { S.ws.send(typeof o === "string" ? o : JSON.stringify(o)); return true } return false }
+function wsBin(arr) {
+  if (REMOTE) { if (R.ok) R.cli.publish(topic("m"), new Uint8Array(new Int8Array(arr).buffer)); return }
+  if (S.ws && S.ws.readyState === 1 && S.ws.bufferedAmount < 2048) S.ws.send(new Int8Array(arr)) }
+function run(steps) { haptic(); if (!wsSend({ a: "steps", s: steps })) api("/api/run", { steps }) }
+const combo = v => run([{ t: "combo", v }]);
+const media = v => run([{ t: "media", v }]);
+
+function onEvent(m) {
+  if (m.ev === "press" || m.ev === "release") $$(`.key[data-i="${m.i}"]`).forEach(k => k.classList.toggle("on", m.ev === "press"));
+  else if (m.ev === "jpress" || m.ev === "jrelease") { const b = $(`.dpad [data-j="${m.i}"]`); b && b.classList.toggle("on", m.ev === "jpress") }
+  else if (m.ev === "profile") { if (S.cfg) { S.cfg.active = m.i; if (S.tab === "pad" && !$(".sheet")) renderView() } }
+  else if (m.ev === "status") { S.status = m.d; updStatus() }
+  else if (m.ev === "pc") { S.status.pc = m.s; updStatus() }
+  else if (m.ev === "config") { if (!$(".sheet")) loadState() }
+}
+
+function updConn() {
+  const c = $("#conn");
+  if (!c) return;
+  const pc = S.status.pc;
+  c.title = !S.wsOk ? "Getrennt" : pc === 1 ? "PC verbunden" : pc === 2 ? "PC im Standby" : "PC nicht verbunden";
+  c.replaceChildren(h("i", { class: "dot " + (!S.wsOk ? "bad" : pc === 1 ? "ok" : pc === 2 ? "warn" : "") }),
+    !S.wsOk ? (REMOTE && R.ok ? "MacroPad offline" : "Getrennt") : pc === 1 ? "PC verbunden" : pc === 2 ? "PC im Standby" : "PC nicht verbunden");
+}
+function updStatus() { updConn(); if (S.tab === "pc") fillPcStatus(); if (S.tab === "settings") fillInfo() }
+
+// ================= Start =================
+async function loadState() {
+  if (REMOTE) {
+    if (!R.cfg) { S.mode = "pair"; render(); return }
+    await connectRemote();
+    if (!R.ok || !R.seen) hello();
+  }
+  const r = await api("/api/state");
+  if (!r.status) { if (REMOTE) splashMsg(R.ok ? "Warte auf MacroPad …" : "Verbinde mit Cloud …"); setTimeout(loadState, 1500); return }
+  S.mode = r.mode; S.fallback = r.fallback; S.name = r.name; S.ver = r.ver;
+  if (r.cfg) S.cfg = r.cfg;
+  if (r.status) S.status = r.status;
+  render();
+  if (S.mode === "app" && !REMOTE) connectWs();
+}
+function splashMsg(t) {
+  const sp = $(".splash");
+  if (!sp) return;
+  sp.replaceChildren(h("div", { style: { textAlign: "center" } }, h("div", { class: "spin lg", style: { margin: "0 auto 18px" } }), h("div", { class: "muted" }, t),
+    h("button", { class: "btn sm", style: { marginTop: "22px" }, onclick: () => { store.set("remote", null); location.reload() } }, "Anderes MacroPad koppeln")));
+}
+
+function render() {
+  const app = $("#app");
+  if (S.mode === "setup" || (S.mode === "login" && S.fallback && S.forceSetup)) return app.replaceChildren(setupView());
+  if (S.mode === "login") return app.replaceChildren(loginView());
+  if (S.mode === "pair") return app.replaceChildren(pairView());
+  app.replaceChildren(...shell());
+  renderView();
+}
+
+// ================= Koppeln (GitHub-Seite) =================
+function pairView() {
+  const inp = h("input", { class: "field", placeholder: "Link einfügen", autocapitalize: "off", spellcheck: "false", onkeydown: e => e.key === "Enter" && go() });
+  const err = h("div", { class: "err" });
+  const go = () => { if (readLink(inp.value)) location.reload(); else err.textContent = "Das ist kein gültiger MacroPad-Link." };
+  return h("div", { class: "solo" }, h("div", { class: "box" }, LOGO(), h("h1", {}, "MacroPad verbinden"),
+    h("p", { class: "lead" }, "Öffne zuhause die MacroPad-Oberfläche, gehe zu Einstellungen → Web-Fernzugriff und tippe auf „Link fürs Handy“. Öffne den Link hier – danach funktioniert diese Seite überall."),
+    inp, err, h("button", { class: "btn primary full", style: { marginTop: "6px" }, onclick: go }, "Verbinden")));
+}
+
+// ================= Einrichtung =================
+function setupView() {
+  const fresh = S.mode === "setup";
+  const st = { step: 0, net: null, nets: null, manual: false, ssid: "", pass: "", name: S.name || "macropad", pw: "", osSel: "windows", layout: "de" };
+  const root = h("div", { class: "solo" });
+  const total = fresh ? 3 : 2;
+  const draw = () => {
+    const box = h("div", { class: "box" });
+    if (st.step > 0 && st.step <= total) box.append(h("div", { class: "steps-ind" }, Array.from({ length: total }, (_, i) => h("i", { class: i < st.step ? "on" : "" }))));
+    box.append(...[welcome, wifi, device, connecting][st.step === 2 && !fresh ? 3 : st.step]().filter(x => x != null && x !== false));
+    root.replaceChildren(box);
+    const f = $("input:not([type=hidden])", box); f && st.step && setTimeout(() => f.focus({ preventScroll: true }), 300);
+  };
+  const welcome = () => [LOGO(), h("h1", {}, fresh ? "Willkommen bei MacroPad" : "WLAN nicht erreichbar"),
+    h("p", { class: "lead" }, fresh ? "In zwei Minuten eingerichtet: WLAN wählen, Gerät benennen, fertig." : "Das gespeicherte WLAN wurde nicht gefunden. Wähle ein Netzwerk, um das MacroPad wieder zu verbinden."),
+    h("button", { class: "btn primary full", onclick: () => { st.step = 1; draw(); scan() } }, fresh ? "Einrichten" : "WLAN wählen"),
+    !fresh && h("button", { class: "btn full", style: { marginTop: "10px" }, onclick: () => { S.forceSetup = false; render() } }, "Zur Anmeldung")];
+  let scanTimer;
+  const scan = async () => {
+    clearTimeout(scanTimer);
+    const r = await api("/api/scan");
+    if (r.status === 202 || !r.nets) { scanTimer = setTimeout(scan, 900); return }
+    st.nets = r.nets.sort((a, b) => b.rssi - a.rssi);
+    if (st.step === 1) draw();
+  };
+  const bars = rssi => { const n = rssi > -58 ? 3 : rssi > -72 ? 2 : 1; return h("span", { class: "bars" }, [1, 2, 3].map(i => h("i", { class: i <= n ? "on" : "" }))) };
+  const wifi = () => {
+    const list = st.nets ? h("div", { class: "list nets" },
+      st.nets.length ? st.nets.map(n => h("div", { class: "item click net" + (st.ssid === n.ssid && !st.manual ? " sel" : ""), onclick: () => { st.ssid = n.ssid; st.manual = false; st.lock = n.lock; draw() } },
+        h("div", { class: "t" }, h("b", {}, n.ssid)), n.lock && icon("lock", "dim"), bars(n.rssi),
+        st.ssid === n.ssid && !st.manual ? icon("check") : null)) : h("div", { class: "item" }, h("div", { class: "t muted" }, "Keine Netzwerke gefunden")),
+      h("div", { class: "item click", onclick: () => { st.manual = true; st.ssid = ""; st.lock = true; draw() } }, h("div", { class: "t" }, h("b", {}, "Anderes Netzwerk …")), icon("chevron", "chev")))
+      : h("div", { class: "list" }, h("div", { class: "item" }, h("div", { class: "spin" }), h("div", { class: "t muted" }, "Suche Netzwerke …")));
+    const pass = h("input", { class: "field", type: "password", placeholder: "Passwort", autocomplete: "current-password", value: st.pass, oninput: e => st.pass = e.target.value, onkeydown: e => e.key === "Enter" && next() });
+    const next = () => { if (!st.ssid) return; st.step = fresh ? 2 : 3; draw(); if (!fresh) submit() };
+    return [h("h1", {}, "WLAN"), h("p", { class: "lead" }, "Mit welchem Netzwerk soll sich das MacroPad verbinden? Nur 2,4 GHz."),
+      h("div", { class: "row", style: { marginBottom: "10px" } }, h("div", { class: "grow dim", style: { fontSize: "13px", paddingLeft: "4px" } }, "Netzwerke"),
+        h("button", { class: "btn sm", onclick: () => { st.nets = null; draw(); scan() } }, "Aktualisieren")),
+      list,
+      st.manual && h("div", { style: { marginTop: "14px" } }, h("input", { class: "field", placeholder: "Netzwerkname (SSID)", value: st.ssid, oninput: e => st.ssid = e.target.value.trim() })),
+      st.ssid || st.manual ? h("div", { style: { marginTop: "14px" } }, (st.lock !== false) && pwField(pass)) : null,
+      h("button", { class: "btn primary full", style: { marginTop: "18px" }, onclick: next, disabled: !st.ssid && !st.manual }, "Weiter")];
+  };
+  const device = () => {
+    const err = h("div", { class: "err" });
+    const pw = h("input", { class: "field", type: "password", placeholder: "Mindestens 6 Zeichen", autocomplete: "new-password", value: st.pw, oninput: e => st.pw = e.target.value });
+    return [h("h1", {}, "Dein MacroPad"), h("p", { class: "lead" }, "Name, Passwort für diese Oberfläche und dein System."),
+      h("div", { class: "stack" },
+        h("div", {}, h("label", { class: "lbl" }, "Gerätename"), h("input", { class: "field", value: st.name, oninput: e => st.name = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "") }),
+          h("div", { class: "dim", style: { fontSize: "12.5px", margin: "6px 4px 0" } }, "Erreichbar unter http://", h("span", { class: "mono" }, st.name || "macropad"), ".local")),
+        h("div", {}, h("label", { class: "lbl" }, "Passwort"), pwField(pw)),
+        h("div", {}, h("label", { class: "lbl" }, "Betriebssystem"), seg([["windows", "Windows"], ["linux", "Linux"]], st.osSel, v => st.osSel = v)),
+        h("div", {}, h("label", { class: "lbl" }, "Tastaturlayout am PC"), seg([["de", "Deutsch (QWERTZ)"], ["us", "US (QWERTY)"]], st.layout, v => st.layout = v))),
+      err,
+      h("div", { class: "row", style: { marginTop: "10px" } },
+        h("button", { class: "btn", onclick: () => { st.step = 1; draw() } }, icon("back")),
+        h("button", { class: "btn primary grow", onclick: () => { if (st.pw.length < 6) { err.textContent = "Das Passwort braucht mindestens 6 Zeichen."; return } st.step = 3; draw(); submit() } }, "Verbinden"))];
+  };
+  let result = null;
+  const connecting = () => {
+    if (!result) return [h("div", { class: "spin lg", style: { marginBottom: "26px" } }), h("h1", {}, "Verbinde …"), h("p", { class: "lead" }, `Das MacroPad meldet sich bei „${st.ssid}“ an. Das dauert bis zu 20 Sekunden.`)];
+    if (result.state === "ok") {
+      const url = `http://${result.name}.local`;
+      return [h("div", { class: "ok-mark" }, icon("check")), h("h1", {}, "Verbunden"),
+        h("p", { class: "lead" }, "Das MacroPad startet neu und ist gleich in deinem WLAN. Verbinde dein Gerät wieder mit „" + st.ssid + "“ und öffne:"),
+        h("div", { class: "list" },
+          h("div", { class: "item" }, h("div", { class: "t" }, h("b", { class: "mono" }, url)), h("button", { class: "icon-btn", onclick: () => copy(url) }, icon("copy"))),
+          h("div", { class: "item" }, h("div", { class: "t" }, h("b", { class: "mono" }, "http://" + result.ip), h("small", {}, "Falls .local nicht funktioniert (z. B. ältere Android-Geräte)")), h("button", { class: "icon-btn", onclick: () => copy("http://" + result.ip) }, icon("copy"))))];
+    }
+    return [h("h1", {}, "Hat nicht geklappt"), h("p", { class: "lead" }, `Keine Verbindung zu „${st.ssid}“. Prüfe das Passwort und ob es ein 2,4-GHz-Netz ist.`),
+      h("button", { class: "btn primary full", onclick: () => { result = null; st.step = 1; draw(); scan() } }, "Erneut versuchen")];
+  };
+  const submit = async () => {
+    result = null;
+    const body = { ssid: st.ssid, pass: st.pass };
+    if (fresh) Object.assign(body, { name: st.name || "macropad", password: st.pw, os: st.osSel, layout: st.layout });
+    const r = await api("/api/setup", body);
+    if (!r.ok) { result = { state: "fail" }; draw(); return }
+    const t0 = Date.now();
+    const poll = async () => {
+      const s = await api("/api/setup/status");
+      if (s.state === "ok" || s.state === "fail") { result = s; draw(); return }
+      if (Date.now() - t0 > 40000) { result = { state: "fail" }; draw(); return }
+      setTimeout(poll, 800);
+    };
+    setTimeout(poll, 1500);
+  };
+  draw();
+  return root;
+}
+
+function pwField(input) {
+  const b = h("button", { class: "icon-btn", type: "button", "aria-label": "Passwort zeigen", onclick: () => { input.type = input.type === "password" ? "text" : "password" } }, icon("eye"));
+  return h("div", { class: "pw" }, input, b);
+}
+function copy(t) { (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => toast("Kopiert"), () => toast(t)) }
+
+function seg(opts, val, onchange) {
+  const el = h("div", { class: "seg", role: "group" });
+  const thumb = h("div", { class: "thumb" });
+  const btns = opts.map(([v, l]) => h("button", { type: "button", "aria-pressed": String(v === val), onclick: () => { if (v === val) return; val = v; haptic(5); upd(); onchange(v) } }, l));
+  el.append(thumb, ...btns);
+  const upd = () => {
+    btns.forEach((b, i) => b.setAttribute("aria-pressed", String(opts[i][0] === val)));
+    const i = Math.max(0, opts.findIndex(o => o[0] === val));
+    thumb.style.width = `calc((100% - 6px) / ${opts.length})`;
+    thumb.style.left = `calc(3px + (100% - 6px) / ${opts.length} * ${i})`;
+  };
+  upd();
+  return el;
+}
+function toggle(checked, onchange) {
+  return h("label", { class: "switch" }, h("input", { type: "checkbox", checked, role: "switch", onchange: e => { haptic(5); onchange(e.target.checked) } }), h("span"));
+}
+function slider(min, max, step, val, onchange, fmt) {
+  const out = h("span", { class: "v mono", style: { minWidth: "52px" } }, fmt(val));
+  const fill = v => `${(v - min) / (max - min) * 100}%`;
+  const inp = h("input", { type: "range", min, max, step, value: val, style: { "--fill": fill(val) },
+    oninput: e => { const v = +e.target.value; e.target.style.setProperty("--fill", fill(v)); out.textContent = fmt(v); onchange(v) } });
+  return [inp, out];
+}
+
+// ================= Anmeldung =================
+function loginView() {
+  const err = h("div", { class: "err" });
+  const pw = h("input", { class: "field", type: "password", placeholder: "Passwort", autocomplete: "current-password", onkeydown: e => e.key === "Enter" && go() });
+  const btn = h("button", { class: "btn primary full", style: { marginTop: "14px" }, onclick: () => go() }, "Anmelden");
+  const go = async () => {
+    btn.disabled = true; err.textContent = "";
+    const r = await api("/api/login", { password: pw.value });
+    btn.disabled = false;
+    if (r.ok) { haptic(10); loadState(); return }
+    err.textContent = r.err === "wait" ? "Zu viele Versuche. Bitte 30 Sekunden warten." : r.status ? "Falsches Passwort." : "Gerät nicht erreichbar.";
+    pw.select();
+  };
+  setTimeout(() => pw.focus(), 350);
+  return h("div", { class: "solo" }, h("div", { class: "box" }, LOGO(), h("h1", {}, S.name || "MacroPad"), h("p", { class: "lead" }, "Melde dich an, um dein MacroPad zu steuern."),
+    pwField(pw), err, btn,
+    S.fallback && h("button", { class: "btn full", style: { marginTop: "10px" }, onclick: () => { S.forceSetup = true; render() } }, icon("wifi"), "WLAN neu einrichten")));
+}
+
+// ================= App-Rahmen =================
+const TABS = [["pad", "Pad", "pad"], ["mouse", "Maus", "mouse"], ["keys", "Tastatur", "keyboard"], ["pc", "PC", "pc"], ["settings", "Einstellungen", "settings"]];
+function shell() {
+  const nav = h("nav", { class: "nav" }, h("div", { class: "nav-brand" }, h("span", { style: { display: "contents" }, html: LOGO().innerHTML.replace('class="logo"', 'width="28" height="28"') }), S.cfg?.name || "MacroPad"),
+    TABS.map(([id, label, ic]) => h("button", { class: "tab", "aria-current": S.tab === id ? "page" : null, onclick: () => go(id) }, icon(ic), h("span", {}, label))));
+  const go = id => { if (S.tab === id) return; haptic(4); S.tab = id; store.set("tab", id); S.editing = false; $$(".tab", nav).forEach((t, i) => TABS[i][0] === id ? t.setAttribute("aria-current", "page") : t.removeAttribute("aria-current")); renderView(); window.scrollTo(0, 0) };
+  return [nav, h("main", { id: "main" })];
+}
+function topBar(title, ...extra) {
+  const dark = document.documentElement.dataset.theme === "dark";
+  const tb = h("button", { class: "icon-btn", "aria-label": dark ? "Helles Design" : "Dunkles Design", title: "Hell/Dunkel", onclick: () => {
+    store.set("theme", document.documentElement.dataset.theme === "dark" ? "light" : "dark"); applyTheme(); haptic(5);
+    tb.replaceChildren(icon(document.documentElement.dataset.theme === "dark" ? "sun" : "moon")); if (S.tab === "settings") renderView() } }, icon(dark ? "sun" : "moon"));
+  return h("div", { class: "top" }, h("h1", {}, title), ...extra, tb, h("span", { class: "conn", id: "conn" }));
+}
+function renderView() {
+  const m = $("#main");
+  if (!m || !S.cfg) return;
+  const v = { pad: padView, mouse: mouseView, keys: keysView, pc: pcView, settings: settingsView }[S.tab] || padView;
+  m.replaceChildren(h("div", { class: "view" }, v()));
+  updConn();
+  if (S.tab === "pc") fillPcStatus();
+  if (S.tab === "settings") fillInfo();
+}
+
+// ================= Pad =================
+const COLORS = ["#5e8bff", "#32d74b", "#ff9f0a", "#ff453a", "#bf5af2", "#64d2ff", "#ffd60a", "#ff6482", "#8e8e93"];
+const MEDIA = [["playpause", "Play/Pause"], ["next", "Nächster Titel"], ["prev", "Vorheriger Titel"], ["stop", "Stopp"], ["volup", "Lauter"], ["voldown", "Leiser"], ["mute", "Stumm"],
+  ["brightup", "Heller"], ["brightdown", "Dunkler"], ["calc", "Rechner"], ["browser", "Browser"], ["mail", "Mail"], ["explorer", "Arbeitsplatz"], ["search", "Suche"]];
+const POWER = [["lock", "Sperren"], ["sleep", "Standby"], ["hibernate", "Ruhezustand"], ["logout", "Abmelden"], ["restart", "Neustart"], ["shutdown", "Herunterfahren"], ["wake", "Aufwecken"], ["wol", "Wake-on-LAN"]];
+const MOUSE = [["left", "Linksklick"], ["right", "Rechtsklick"], ["middle", "Mittelklick"], ["double", "Doppelklick"], ["wheelup", "Scroll hoch"], ["wheeldown", "Scroll runter"]];
+const KEYNAMES = { ctrl: "Strg", shift: "Shift", alt: "Alt", altgr: "AltGr", win: () => os() === "linux" ? "Super" : "Win", enter: "Enter", esc: "Esc", tab: "Tab", space: "Leertaste", backspace: "⌫", del: "Entf", delete: "Entf",
+  up: "↑", down: "↓", left: "←", right: "→", pgup: "Bild↑", pgdn: "Bild↓", home: "Pos1", end: "Ende", print: "Druck", plus: "+", ins: "Einfg" };
+const prettyCombo = c => (c || "").split(/\+(?!$)/).map(k => { const n = KEYNAMES[k.toLowerCase()]; return typeof n === "function" ? n() : n || (k.length === 1 ? k.toUpperCase() : k.toUpperCase()) }).join(" + ");
+const lbl = (arr, v) => (arr.find(a => a[0] === v) || [, v])[1];
+function stepHint(steps) {
+  if (!steps || !steps.length) return "Nicht belegt";
+  const s = steps[0], more = steps.length > 1 ? ` · +${steps.length - 1}` : "";
+  const t = { combo: () => prettyCombo(s.v), key: () => prettyCombo(s.v), raw: () => prettyCombo(s.v), text: () => `„${s.v}“`, media: () => lbl(MEDIA, s.v), power: () => lbl(POWER, s.v), mouse: () => lbl(MOUSE, s.v),
+    delay: () => `${s.v} ms warten`, run: () => s.v, url: () => s.v.replace(/^https?:\/\//, ""), profile: () => "Profil: " + s.v }[s.t];
+  return (t ? t() : s.t) + more;
+}
+function profile() { return S.cfg.profiles[S.cfg.active] || S.cfg.profiles[0] }
+
+function padView() {
+  const p = profile();
+  const chips = h("div", { class: "chips" }, S.cfg.profiles.map((pr, i) =>
+    h("button", { class: "chip", "aria-pressed": String(i === S.cfg.active), onclick: () => { if (S.editing && i === S.cfg.active) return profileSheet(i); S.cfg.active = i; wsSend({ a: "profile", i }) || saveCfg(); haptic(); renderView() } }, pr.name)),
+    S.editing && h("button", { class: "chip add", "aria-label": "Profil hinzufügen", onclick: addProfile }, icon("plus")));
+  const pad = h("div", { class: "pad" + (S.editing ? " editing" : "") }, p.keys.slice(0, 6).map((k, i) =>
+    h("button", { class: "key", "data-i": i, style: { "--c": k.color || "#8e8e93" }, onclick: () => S.editing ? actionSheet(p.keys, i, `Taste ${i + 1}`) : (haptic(), wsSend({ a: "btn", i }) || run(k.steps)) },
+      h("i", { class: "pip" }), h("span", { class: "num" }, S.editing ? icon("edit") : i + 1), h("span", { class: "lb" }, k.label || `Taste ${i + 1}`), h("span", { class: "hint" }, stepHint(k.steps)))));
+  const jm = S.cfg.joy.mode, custom = jm === "custom";
+  const jAct = j => { if (S.editing && custom) return actionSheet(p.joy, j, ["Joystick hoch", "Joystick runter", "Joystick links", "Joystick rechts", "Joystick drücken"][j]); haptic(); if (custom) wsSend({ a: "joy", i: j }); else combo(["up", "down", "left", "right", "enter"][j]) };
+  const dpad = h("div", { class: "dpad" },
+    [["u", "up", 0], ["dn", "down", 1], ["l", "left", 2], ["r", "right", 3]].map(([c, ic, j]) => h("button", { class: "d " + c, "data-j": j, "aria-label": ic, onclick: () => jAct(j) }, icon(ic))),
+    h("button", { class: "c", "data-j": 4, onclick: () => jAct(4) }, custom ? (p.joy[4]?.label || "OK") : jm === "mouse" ? "Klick" : "Enter"));
+  const mediaBox = h("div", { class: "media" },
+    [["prev", "prev"], ["playpause", "playpause"], ["next", "next"], ["voldown", "voldown"], ["mute", "mute"], ["volup", "volup"]].map(([v, ic]) =>
+      h("button", { class: v === "playpause" ? "play" : "", "aria-label": lbl(MEDIA, v), onclick: () => media(v) }, icon(ic))));
+  const jLabel = { arrows: "Joystick: Pfeiltasten", mouse: "Joystick: Maus", scroll: "Joystick: Scrollen", custom: "Joystick: eigene Belegung" }[jm];
+  return [
+    topBar(S.editing ? "Bearbeiten" : p.name, h("button", { class: "btn sm" + (S.editing ? " primary" : ""), onclick: () => { S.editing = !S.editing; haptic(); renderView() } }, S.editing ? "Fertig" : "Bearbeiten")),
+    chips, pad,
+    h("div", { class: "pad-lower" }, h("div", {}, dpad, h("div", { class: "joy-mode" }, jLabel)), mediaBox),
+    S.editing && h("p", { class: "dim", style: { fontSize: "13px", textAlign: "center", margin: "18px 0 0" } }, "Taste antippen zum Bearbeiten · aktives Profil antippen zum Umbenennen", custom ? " · Joystick-Richtungen sind ebenfalls belegbar" : ""),
+    !S.editing && h("p", { class: "dim", style: { fontSize: "12.5px", textAlign: "center", margin: "18px 0 0" } }, "Am Gerät: Joystick gedrückt halten + Taste 1–6 wechselt das Profil")
+  ];
+}
+
+function addProfile() {
+  const n = S.cfg.profiles.length + 1;
+  const blank = () => ({ label: "", color: "#8e8e93", steps: [] });
+  S.cfg.profiles.push({ name: `Profil ${n}`, keys: Array.from({ length: 6 }, blank), joy: JSON.parse(JSON.stringify(profile().joy)) });
+  S.cfg.active = S.cfg.profiles.length - 1;
+  saveCfg(true); renderView(); profileSheet(S.cfg.active);
+}
+
+function profileSheet(i) {
+  const p = S.cfg.profiles[i];
+  const name = h("input", { class: "field", value: p.name, maxlength: 24 });
+  sheet("Profil", close => [
+    h("div", { class: "stack" }, h("div", {}, h("label", { class: "lbl" }, "Name"), name),
+      h("div", { class: "list" },
+        h("div", { class: "item click", onclick: () => { const c = JSON.parse(JSON.stringify(p)); c.name += " Kopie"; S.cfg.profiles.splice(i + 1, 0, c); S.cfg.active = i + 1; saveCfg(true); close(); renderView() } }, icon("dup"), h("div", { class: "t" }, h("b", {}, "Duplizieren"))),
+        S.cfg.profiles.length > 1 && h("div", { class: "item click", style: { color: "var(--bad)" }, onclick: () => { if (!confirm(`Profil „${p.name}“ löschen?`)) return; S.cfg.profiles.splice(i, 1); S.cfg.active = 0; saveCfg(true); close(); renderView() } }, icon("trash"), h("div", { class: "t" }, h("b", {}, "Löschen")))))
+  ], [["Abbrechen", null], ["Sichern", close => { p.name = name.value.trim() || p.name; saveCfg(true); close(); renderView() }, "primary"]]);
+}
+
+// ================= Sheet =================
+function sheet(title, content, buttons, onClose) {
+  const scrim = h("div", { class: "scrim" });
+  const el = h("div", { class: "sheet", role: "dialog", "aria-modal": "true", "aria-label": title });
+  let closed = false;
+  const close = () => {
+    if (closed) return; closed = true;
+    document.removeEventListener("keydown", esc);
+    window.removeEventListener("pointermove", pm); window.removeEventListener("pointerup", pu);
+    scrim.classList.add("out"); el.classList.add("out");
+    setTimeout(() => { scrim.remove(); el.remove(); onClose && onClose() }, 300);
+  };
+  const esc = e => e.key === "Escape" && close();
+  document.addEventListener("keydown", esc);
+  scrim.onclick = close;
+  el.append(h("div", { class: "grab" }), h("header", {}, h("h3", {}, title), h("button", { class: "icon-btn", "aria-label": "Schließen", onclick: close }, icon("x"))),
+    h("div", { class: "body" }, content(close)),
+    buttons ? h("footer", {}, buttons.map(([l, fn, cls]) => h("button", { class: "btn " + (cls || ""), onclick: () => fn ? fn(close) : close() }, l))) : "");
+  // Wischen nach unten schließt (Mobil)
+  let y0 = null;
+  const pm = e => { if (y0 == null) return; const d = Math.max(0, e.clientY - y0); if (innerWidth < 900) el.style.transform = `translateY(${d}px)` };
+  const pu = e => { if (y0 == null) return; const d = e.clientY - y0; y0 = null; el.style.transition = "transform .3s var(--ease)"; if (d > 110 && innerWidth < 900) close(); else el.style.transform = "" };
+  $("header", el).addEventListener("pointerdown", e => { if (e.target.closest("button")) return; y0 = e.clientY; el.style.transition = "none" });
+  window.addEventListener("pointermove", pm);
+  window.addEventListener("pointerup", pu);
+  document.body.append(scrim, el);
+  return close;
+}
+
+// ================= Aktionseditor =================
+const STEP_TYPES = [["combo", "Tastenkombi"], ["text", "Text tippen"], ["media", "Medien"], ["power", "Power"], ["mouse", "Maus"], ["run", "Programm"], ["url", "Webseite"], ["delay", "Pause"], ["profile", "Profil"]];
+function presets() {
+  const L = os() === "linux";
+  return [
+    ["Kopieren", "#5e8bff", [{ t: "combo", v: "ctrl+c" }]], ["Einfügen", "#5e8bff", [{ t: "combo", v: "ctrl+v" }]], ["Ausschneiden", "#5e8bff", [{ t: "combo", v: "ctrl+x" }]],
+    ["Rückgängig", "#5e8bff", [{ t: "combo", v: "ctrl+z" }]], ["Wiederholen", "#5e8bff", [{ t: "combo", v: L ? "ctrl+shift+z" : "ctrl+y" }]],
+    ["Screenshot", "#32d74b", [{ t: "combo", v: L ? "print" : "win+shift+s" }]], ["Desktop", "#32d74b", [{ t: "combo", v: L ? "super+d" : "win+d" }]],
+    ["App wechseln", "#32d74b", [{ t: "combo", v: "alt+tab" }]], ["Schließen", "#ff453a", [{ t: "combo", v: "alt+f4" }]],
+    ["Task-Manager", "#ff9f0a", L ? [{ t: "run", v: "gnome-system-monitor" }] : [{ t: "combo", v: "ctrl+shift+esc" }]],
+    ["Terminal", "#8e8e93", L ? [{ t: "combo", v: "ctrl+alt+t" }] : [{ t: "run", v: "wt" }]],
+    ["Dateien", "#64d2ff", L ? [{ t: "run", v: "xdg-open ~" }] : [{ t: "combo", v: "win+e" }]],
+    ["Browser", "#64d2ff", [{ t: "media", v: "browser" }]], ["Rechner", "#64d2ff", [{ t: "media", v: "calc" }]],
+    ["Play/Pause", "#bf5af2", [{ t: "media", v: "playpause" }]], ["Weiter", "#bf5af2", [{ t: "media", v: "next" }]], ["Zurück", "#bf5af2", [{ t: "media", v: "prev" }]],
+    ["Stumm", "#bf5af2", [{ t: "media", v: "mute" }]], ["Lauter", "#bf5af2", [{ t: "media", v: "volup" }]], ["Leiser", "#bf5af2", [{ t: "media", v: "voldown" }]],
+    ["Mikro aus (Teams)", "#ff6482", [{ t: "combo", v: "ctrl+shift+m" }]], ["Mikro aus (Discord)", "#ff6482", [{ t: "combo", v: "ctrl+shift+m" }]],
+    ["Sperren", "#ff453a", [{ t: "power", v: "lock" }]], ["Standby", "#ff9f0a", [{ t: "power", v: "sleep" }]],
+    ["YouTube", "#ff453a", [{ t: "url", v: "https://youtube.com" }]], ["Gruß", "#ffd60a", [{ t: "text", v: "Mit freundlichen Grüßen\n" }]],
+  ];
+}
+
+function valueInput(s, onchange) {
+  const sel = (opts) => h("select", { class: "field", onchange: e => { s.v = e.target.value; onchange() } }, opts.map(([v, l]) => h("option", { value: v, selected: s.v === v }, l)));
+  switch (s.t) {
+    case "media": return sel(MEDIA);
+    case "power": return sel(POWER);
+    case "mouse": return sel(MOUSE);
+    case "profile": return sel([["next", "Nächstes Profil"], ["prev", "Vorheriges Profil"], ...S.cfg.profiles.map((p, i) => [String(i), p.name])]);
+    case "delay": return h("input", { class: "field", type: "number", min: 0, max: 30000, step: 50, value: s.v, inputmode: "numeric", oninput: e => { s.v = Math.max(0, Math.min(30000, +e.target.value || 0)); onchange() } });
+    case "text": return h("textarea", { class: "field", rows: 2, style: { minHeight: "42px" }, placeholder: "Text, auch mehrzeilig", value: s.v, oninput: e => { s.v = e.target.value; onchange() } });
+    case "combo": case "key": case "raw": {
+      const inp = h("input", { class: "field mono", placeholder: "z. B. ctrl+shift+esc", value: s.v, autocapitalize: "off", autocomplete: "off", spellcheck: "false", oninput: e => { s.v = e.target.value.trim().toLowerCase(); onchange() } });
+      const rec = h("button", { class: "icon-btn", type: "button", title: "Kombination am Computer aufnehmen", "aria-label": "Aufnehmen", onclick: () => record(inp, s, onchange) }, icon("record"));
+      return h("div", { class: "row", style: { gap: "6px" } }, h("div", { class: "grow" }, inp), rec);
+    }
+    case "run": return h("input", { class: "field mono", placeholder: os() === "linux" ? "z. B. firefox" : "z. B. notepad, calc, spotify:", value: s.v, autocapitalize: "off", spellcheck: "false", oninput: e => { s.v = e.target.value; onchange() } });
+    case "url": return h("input", { class: "field", type: "url", placeholder: "https://", value: s.v, autocapitalize: "off", oninput: e => { s.v = e.target.value.trim(); onchange() } });
+  }
+  return h("input", { class: "field", value: s.v, oninput: e => { s.v = e.target.value; onchange() } });
+}
+
+// Tastenkombination mit der echten Tastatur aufnehmen
+function record(inp, s, onchange) {
+  inp.classList.add("rec"); inp.value = ""; inp.placeholder = "Tasten drücken …"; inp.focus();
+  const map = { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right", Escape: "esc", " ": "space", Enter: "enter", Backspace: "backspace", Delete: "del", Tab: "tab",
+    Home: "home", End: "end", PageUp: "pgup", PageDown: "pgdn", Insert: "ins", PrintScreen: "print", ContextMenu: "menu", Pause: "pause", CapsLock: "capslock", "+": "plus" };
+  const kd = e => {
+    e.preventDefault(); e.stopPropagation();
+    if (["Control", "Shift", "Alt", "Meta", "AltGraph", "OS"].includes(e.key)) return;
+    const parts = [];
+    if (e.ctrlKey && !e.getModifierState("AltGraph")) parts.push("ctrl");
+    if (e.getModifierState("AltGraph")) parts.push("altgr");
+    else if (e.altKey) parts.push("alt");
+    if (e.shiftKey && e.key.length !== 1) parts.push("shift");
+    if (e.metaKey) parts.push("win");
+    let k = map[e.key] || (/^F\d{1,2}$/.test(e.key) ? e.key.toLowerCase() : e.key.length === 1 ? e.key.toLowerCase() : e.key.toLowerCase());
+    if (e.shiftKey && e.key.length === 1 && /[a-z]/i.test(e.key)) parts.push("shift");
+    parts.push(k);
+    s.v = parts.join("+"); inp.value = s.v; onchange(); done();
+  };
+  const done = () => { inp.classList.remove("rec"); inp.placeholder = "z. B. ctrl+shift+esc"; window.removeEventListener("keydown", kd, true); inp.removeEventListener("blur", done) };
+  window.addEventListener("keydown", kd, true);
+  inp.addEventListener("blur", done);
+}
+
+function actionSheet(arr, idx, title) {
+  const orig = arr[idx] || { label: "", color: "#8e8e93", steps: [] };
+  const a = JSON.parse(JSON.stringify(orig));
+  a.steps = a.steps || [];
+  const name = h("input", { class: "field", value: a.label, maxlength: 28, placeholder: "Beschriftung", oninput: e => a.label = e.target.value });
+  const sw = h("div", { class: "swatches" });
+  const drawSw = () => sw.replaceChildren(...COLORS.map(c => h("button", { class: "sw", style: { "--c": c }, "aria-label": c, "aria-pressed": String(a.color === c), onclick: () => { a.color = c; haptic(4); drawSw() } })));
+  drawSw();
+  const list = h("div");
+  const drawSteps = () => {
+    list.replaceChildren(...(a.steps.length ? a.steps.map((s, i) => {
+      const val = h("div", { class: "val" }, valueInput(s, () => {}));
+      const type = h("select", { class: "field", "aria-label": "Art", onchange: e => { s.t = e.target.value; s.v = { media: "playpause", power: "lock", mouse: "left", delay: 200, profile: "next" }[s.t] ?? ""; drawSteps() } },
+        STEP_TYPES.map(([v, l]) => h("option", { value: v, selected: (s.t === "key" || s.t === "raw" ? "combo" : s.t) === v }, l)));
+      return h("div", { class: "step" }, type, val, h("div", { class: "acts" },
+        i > 0 && h("button", { class: "icon-btn", "aria-label": "Nach oben", onclick: () => { a.steps.splice(i - 1, 0, a.steps.splice(i, 1)[0]); drawSteps() } }, icon("up2")),
+        h("button", { class: "icon-btn", "aria-label": "Entfernen", onclick: () => { a.steps.splice(i, 1); drawSteps() } }, icon("trash"))));
+    }) : [h("div", { class: "dim", style: { padding: "14px 4px", fontSize: "14px" } }, "Noch keine Aktion. Wähle eine Vorlage oder füge einen Schritt hinzu.")]));
+  };
+  drawSteps();
+  const pr = h("div", { class: "presets" }, presets().map(([l, c, steps]) => h("button", { class: "chip", onclick: () => { a.label = l; name.value = l; a.color = c; a.steps = JSON.parse(JSON.stringify(steps)); drawSw(); drawSteps(); haptic(5) } }, l)));
+  sheet(title, () => h("div", { class: "stack" },
+    h("div", {}, h("label", { class: "lbl" }, "Beschriftung"), name),
+    h("div", {}, h("label", { class: "lbl" }, "Farbe"), sw),
+    h("div", {}, h("label", { class: "lbl" }, "Vorlagen"), pr),
+    h("div", {}, h("label", { class: "lbl" }, "Ablauf"), list,
+      h("div", { class: "row", style: { marginTop: "10px" } },
+        h("button", { class: "btn sm", onclick: () => { a.steps.push({ t: "combo", v: "" }); drawSteps(); setTimeout(() => { const f = $$(".step .val input", list).pop(); f && f.focus() }, 50) } }, icon("plus"), "Schritt"),
+        h("div", { class: "grow" }),
+        h("button", { class: "btn sm", onclick: () => run(a.steps) }, icon("play"), "Testen"))),
+    h("p", { class: "dim", style: { fontSize: "12.5px", margin: "4px 2px 0" } },
+      "Kombinationen: ctrl, shift, alt, altgr, win + Taste (a–z, 0–9, f1–f24, enter, esc, tab, space, up, down, del, home, end, pgup, pgdn, print). ",
+      os() === "linux" ? "„Programm“ öffnet ein Terminal und startet den Befehl im Hintergrund." : "„Programm“ nutzt den Ausführen-Dialog (Win+R).")),
+  [["Abbrechen", null], ["Sichern", close => { a.steps = a.steps.filter(s => s.v !== "" && s.v != null); arr[idx] = a; saveCfg(true); close(); renderView() }, "primary"]]);
+}
+
+// ================= Maus =================
+function mouseView() {
+  const P = { sens: store.get("sens", 1.6), accel: store.get("accel", 1), natural: store.get("natural", true), scroll: store.get("scrollSpeed", 1) };
+  const tp = h("div", { class: "tp", role: "application", "aria-label": "Trackpad" });
+  const hint = h("div", { class: "hint" }, h("div", {}, "Ein Finger bewegt · Tippen klickt", h("br"), "Zwei Finger scrollen · Zwei-Finger-Tippen = Rechtsklick", h("br"), "Doppeltippen und halten zum Ziehen"));
+  tp.append(hint);
+  const pts = new Map(); const dots = new Map();
+  let acc = { x: 0, y: 0, sx: 0, sy: 0 }, raf = 0, t0 = 0, moved = 0, maxPts = 0, dragging = false, lastTap = 0, hintGone = false;
+  const flush = () => {
+    raf = 0;
+    const out = [];
+    let x = Math.trunc(acc.x), y = Math.trunc(acc.y); acc.x -= x; acc.y -= y;
+    while (x || y) { const cx = clamp8(x), cy = clamp8(y); out.push(1, cx, cy); x -= cx; y -= cy }
+    const step = 22 / P.scroll;
+    const w = Math.trunc(acc.sy / step), p = Math.trunc(acc.sx / step); acc.sy -= w * step; acc.sx -= p * step;
+    if (w || p) out.push(2, clamp8(P.natural ? w : -w), clamp8(P.natural ? -p : p));
+    if (out.length) wsBin(out);
+  };
+  const sched = () => { if (!raf) raf = requestAnimationFrame(flush) };
+  const btn = (b, s) => { haptic(s === 1 ? 6 : 4); wsBin([3, b, s]) };
+  const rect = () => tp.getBoundingClientRect();
+  const showDot = (id, x, y) => { let d = dots.get(id); if (!d) { d = h("div", { class: "touch" }); tp.append(d); dots.set(id, d) } const r = rect(); d.style.left = x - r.left + "px"; d.style.top = y - r.top + "px" };
+  tp.addEventListener("pointerdown", e => {
+    e.preventDefault(); tp.setPointerCapture(e.pointerId);
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (e.pointerType !== "mouse") showDot(e.pointerId, e.clientX, e.clientY);
+    if (!hintGone) { hintGone = true; hint.style.opacity = 0 }
+    if (pts.size === 1) {
+      t0 = performance.now(); moved = 0; maxPts = 1;
+      if (t0 - lastTap < 260) { dragging = true; btn(1, 1) }
+    }
+    maxPts = Math.max(maxPts, pts.size);
+  });
+  tp.addEventListener("pointermove", e => {
+    const p = pts.get(e.pointerId);
+    if (!p) return;
+    // gebündelte Events für flüssigere Bewegung
+    const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+    for (const ce of (evs.length ? evs : [e])) {
+      const dx = ce.clientX - p.x, dy = ce.clientY - p.y;
+      p.x = ce.clientX; p.y = ce.clientY;
+      moved += Math.abs(dx) + Math.abs(dy);
+      if (pts.size === 1) {
+        const v = Math.hypot(dx, dy);
+        const f = P.sens * (1 + P.accel * Math.min(v, 36) / 12);
+        acc.x += dx * f; acc.y += dy * f;
+      } else if (pts.size === 2) { acc.sx += dx / 2; acc.sy += dy / 2 }
+    }
+    if (e.pointerType !== "mouse") showDot(e.pointerId, e.clientX, e.clientY);
+    sched();
+  });
+  const up = e => {
+    if (!pts.has(e.pointerId)) return;
+    pts.delete(e.pointerId);
+    const d = dots.get(e.pointerId); if (d) { d.style.opacity = 0; d.style.transform = "scale(1.4)"; setTimeout(() => d.remove(), 250); dots.delete(e.pointerId) }
+    if (pts.size) return;
+    const dt = performance.now() - t0;
+    if (dragging) { dragging = false; btn(1, 0); lastTap = 0; return }
+    if (dt < 230 && moved < 9 * maxPts) {
+      if (maxPts === 1) { btn(1, 2); lastTap = performance.now() }
+      else if (maxPts === 2) btn(2, 2);
+      else btn(4, 2);
+    }
+  };
+  tp.addEventListener("pointerup", up); tp.addEventListener("pointercancel", up);
+  tp.addEventListener("contextmenu", e => e.preventDefault());
+  tp.addEventListener("wheel", e => { e.preventDefault(); acc.sy += -e.deltaY / 2; acc.sx += -e.deltaX / 2; sched() }, { passive: false });
+
+  const mb = (b, label) => {
+    const el = h("button", { "aria-label": label }, label);
+    el.addEventListener("pointerdown", e => { e.preventDefault(); el.setPointerCapture(e.pointerId); el.classList.add("on"); btn(b, 1) });
+    const rel = () => { if (!el.classList.contains("on")) return; el.classList.remove("on"); btn(b, 0) };
+    el.addEventListener("pointerup", rel); el.addEventListener("pointercancel", rel);
+    el.addEventListener("contextmenu", e => e.preventDefault());
+    return el;
+  };
+  const opts = () => sheet("Trackpad", () => h("div", { class: "list" },
+    h("div", { class: "item" }, h("div", { class: "t" }, h("b", {}, "Tempo")), ...slider(0.5, 4, 0.1, P.sens, v => { P.sens = v; store.set("sens", v) }, v => v.toFixed(1) + "×")),
+    h("div", { class: "item" }, h("div", { class: "t" }, h("b", {}, "Beschleunigung")), ...slider(0, 2.5, 0.1, P.accel, v => { P.accel = v; store.set("accel", v) }, v => v.toFixed(1))),
+    h("div", { class: "item" }, h("div", { class: "t" }, h("b", {}, "Scroll-Tempo")), ...slider(0.3, 3, 0.1, P.scroll, v => { P.scroll = v; store.set("scrollSpeed", v) }, v => v.toFixed(1) + "×")),
+    h("div", { class: "item" }, h("div", { class: "t" }, h("b", {}, "Natürliches Scrollen"), h("small", {}, "Inhalt folgt den Fingern")), toggle(P.natural, v => { P.natural = v; store.set("natural", v) }))));
+  return [topBar("Maus", h("button", { class: "icon-btn", "aria-label": "Trackpad-Optionen", onclick: opts }, icon("settings"))),
+    h("div", { class: "tp-wrap" }, tp, h("div", { class: "mbtns" }, mb(1, "Links"), mb(4, "Mitte"), mb(2, "Rechts")))];
+}
+
+// ================= Tastatur =================
+function keysView() {
+  const mods = new Set();
+  const modKeys = [["ctrl", "Strg"], ["shift", "Shift"], ["alt", "Alt"], ["win", os() === "linux" ? "Super" : "Win"]];
+  const modBtns = modKeys.map(([m, l]) => h("button", { class: "k", "aria-pressed": "false", onclick: e => { mods.has(m) ? mods.delete(m) : mods.add(m); e.currentTarget.setAttribute("aria-pressed", String(mods.has(m))); haptic(4) } }, l));
+  const key = k => { combo([...mods, k].join("+")); if (mods.size) { mods.clear(); modBtns.forEach(b => b.setAttribute("aria-pressed", "false")) } };
+  const K = (k, l, cls) => h("button", { class: "k " + (cls || ""), onclick: () => key(k) }, l);
+  // Live-Tippen: Unterschied zum vorherigen Inhalt wird als Tastendrücke gesendet (funktioniert auch mit Autokorrektur)
+  let prev = "";
+  const live = store.get("live", false);
+  const ta = h("textarea", { class: "field" + (live ? " live-on" : ""), rows: 3, placeholder: live ? "Live: Jede Eingabe geht sofort an den PC" : "Text eingeben und senden", autocapitalize: "off", autocomplete: "off", spellcheck: "false" });
+  const sendText = () => { if (!ta.value) return; run([{ t: "text", v: ta.value }]); ta.value = ""; prev = ""; toast("Gesendet") };
+  ta.addEventListener("input", () => {
+    if (!store.get("live", false)) return;
+    const v = ta.value;
+    let i = 0; while (i < prev.length && i < v.length && prev[i] === v[i]) i++;
+    const del = prev.length - i, ins = v.slice(i);
+    const steps = [];
+    for (let n = 0; n < del; n++) steps.push({ t: "combo", v: "backspace" });
+    if (ins) steps.push({ t: "text", v: ins });
+    if (steps.length) wsSend({ a: "steps", s: steps });
+    prev = v;
+    if (v.length > 300) { ta.value = ""; prev = "" }
+  });
+  ta.addEventListener("keydown", e => {
+    if (store.get("live", false)) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); combo("enter"); ta.value = ""; prev = "" } else if (e.key === "Backspace" && !ta.value) combo("backspace") }
+    else if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) sendText();
+  });
+  const sendBtn = h("button", { class: "send", "aria-label": "Senden", onclick: sendText }, icon("send"));
+  const liveToggle = toggle(live, v => { store.set("live", v); ta.classList.toggle("live-on", v); ta.placeholder = v ? "Live: Jede Eingabe geht sofort an den PC" : "Text eingeben und senden"; sendBtn.classList.toggle("hide", v); prev = ta.value = ""; ta.focus() });
+  if (live) sendBtn.classList.add("hide");
+  const L = os() === "linux";
+  const shortcuts = [["ctrl+c", "Kopieren"], ["ctrl+v", "Einfügen"], ["ctrl+x", "Ausschneiden"], ["ctrl+z", "Rückgängig"], ["ctrl+a", "Alles"], ["ctrl+s", "Speichern"],
+    ["ctrl+f", "Suchen"], ["alt+tab", "App wechseln"], ["alt+f4", "Schließen"], [L ? "super+d" : "win+d", "Desktop"], [L ? "print" : "win+shift+s", "Screenshot"],
+    [L ? "ctrl+alt+t" : "ctrl+shift+esc", L ? "Terminal" : "Task-Manager"], [L ? "super" : "win+e", L ? "Übersicht" : "Explorer"], [L ? "alt+f2" : "win+r", "Ausführen"],
+    ["ctrl+t", "Neuer Tab"], ["ctrl+w", "Tab schließen"], ["ctrl+shift+t", "Tab zurück"], ["f5", "Neu laden"], ["f11", "Vollbild"], [L ? "super+l" : "win+l", "Sperren"]];
+  return [topBar("Tastatur"),
+    h("div", { class: "card" },
+      h("div", { class: "row", style: { marginBottom: "12px" } }, h("div", { class: "grow" }, h("b", { style: { fontWeight: 600 } }, "Live-Tippen"), h("div", { class: "dim", style: { fontSize: "12.5px" } }, "Handy-Tastatur direkt am PC nutzen")), liveToggle),
+      h("div", { class: "live" }, ta, sendBtn)),
+    h("div", { class: "section" }, "Modifikatoren · wirken auf die nächste Taste"),
+    h("div", { class: "kgrid" }, modBtns),
+    h("div", { class: "section" }, "Tasten"),
+    h("div", { class: "keys-split" },
+      h("div", { class: "kgrid c3" }, K("esc", "Esc"), K("tab", "Tab"), K("backspace", "⌫"), K("home", "Pos1"), K("end", "Ende"), K("del", "Entf"), K("pgup", "Bild ↑"), K("pgdn", "Bild ↓"), K("enter", "Enter")),
+      h("div", { class: "arrows" }, h("span"), K("up", icon("up")), h("span"), K("left", icon("left")), K("down", icon("down")), K("right", icon("right")))),
+    h("div", { class: "section" }, "Funktionstasten"),
+    h("div", { class: "fkeys" }, Array.from({ length: 12 }, (_, i) => K("f" + (i + 1), "F" + (i + 1)))),
+    h("div", { class: "section" }, "Kurzbefehle"),
+    h("div", { class: "kgrid sc" }, shortcuts.map(([c, l]) => h("button", { class: "k tall", onclick: () => combo(c) }, l, h("small", {}, prettyCombo(c))))),
+    h("div", { class: "section" }, "Medien"),
+    h("div", { class: "media", style: { gridTemplateColumns: "repeat(6,1fr)" } }, [["prev", "prev"], ["playpause", "playpause"], ["next", "next"], ["voldown", "voldown"], ["mute", "mute"], ["volup", "volup"]].map(([v, ic]) => h("button", { "aria-label": lbl(MEDIA, v), onclick: () => media(v) }, icon(ic))))
+  ];
+}
+
+// ================= PC =================
+const fmtUp = s => { s = s || 0; const d = Math.floor(s / 86400), hh = Math.floor(s / 3600) % 24, m = Math.floor(s / 60) % 60; return d ? `${d} T ${hh} h` : hh ? `${hh} h ${m} min` : `${m} min` };
+function pcView() {
+  const hold = (cls, ic, label, sub, fn) => {
+    const fill = h("i", { class: "fill" });
+    const el = h("button", { class: "pbtn " + cls }, fill, icon(ic), h("div", {}, h("b", {}, label), h("small", {}, sub)));
+    let raf, t0;
+    const stop = () => { cancelAnimationFrame(raf); t0 = null; el.style.setProperty("--p", 0); fill.style.transition = "transform .3s var(--ease)" };
+    el.addEventListener("pointerdown", e => {
+      e.preventDefault(); el.setPointerCapture(e.pointerId); t0 = performance.now(); fill.style.transition = "none"; haptic(5);
+      const tick = () => { const p = Math.min(1, (performance.now() - t0) / 1100); el.style.setProperty("--p", p); if (p >= 1) { haptic([12, 40, 18]); stop(); fn(); return } raf = requestAnimationFrame(tick) };
+      raf = requestAnimationFrame(tick);
+    });
+    el.addEventListener("pointerup", () => { if (t0 && performance.now() - t0 < 1100) toast("Gedrückt halten zum Bestätigen") ; stop() });
+    el.addEventListener("pointercancel", stop);
+    el.addEventListener("contextmenu", e => e.preventDefault());
+    return el;
+  };
+  const tap = (cls, ic, label, sub, fn) => h("button", { class: "pbtn " + cls, onclick: () => { haptic(); fn() } }, icon(ic), h("div", {}, h("b", {}, label), h("small", {}, sub)));
+  const pw = a => async () => { const r = await api("/api/power", { a }); if (!r.ok) toast(r.err === "mac" ? "Keine MAC-Adresse hinterlegt (Einstellungen)" : "Fehlgeschlagen", true); else toast({ lock: "Gesperrt", sleep: "Standby ausgelöst", hibernate: "Ruhezustand ausgelöst", logout: "Abmelden ausgelöst", restart: "Neustart ausgelöst", shutdown: "Wird heruntergefahren", wake: "Aufweck-Signal gesendet", wol: "Wake-on-LAN gesendet" }[a]) };
+  const cmd = h("input", { class: "field mono", placeholder: os() === "linux" ? "Befehl, z. B. firefox" : "Programm, z. B. notepad", autocapitalize: "off", spellcheck: "false", onkeydown: e => e.key === "Enter" && go() });
+  const go = () => { const v = cmd.value.trim(); if (!v) return; run([{ t: /^https?:\/\//.test(v) ? "url" : "run", v }]); cmd.value = ""; toast("Ausgeführt") };
+  return [topBar("PC"),
+    h("div", { class: "card", id: "pchero" }),
+    h("div", { class: "section" }, "Energie"),
+    h("div", { class: "pgrid" },
+      tap("blue", "lock", "Sperren", "Sofort", pw("lock")),
+      tap("warn", "moon", "Standby", "Energie sparen", pw("sleep")),
+      hold("danger", "restart", "Neustart", "Halten", pw("restart")),
+      hold("danger", "power", "Ausschalten", "Halten", pw("shutdown")),
+      tap("good", "sun", "Aufwecken", "Aus Standby", pw("wake")),
+      tap("good", "bolt", "Einschalten", "Wake-on-LAN", pw("wol")),
+      hold("", "snow", "Ruhezustand", "Halten", pw("hibernate")),
+      hold("", "logout", "Abmelden", "Halten", pw("logout"))),
+    h("div", { class: "section" }, "Ausführen"),
+    h("div", { class: "row" }, h("div", { class: "grow" }, cmd), h("button", { class: "btn primary", onclick: go }, "Start")),
+    h("p", { class: "dim", style: { fontSize: "12.5px", margin: "8px 4px 0" } }, os() === "linux" ? "Öffnet ein Terminal (" + (S.cfg.termKey || "ctrl+alt+t") + ") und startet den Befehl im Hintergrund. Links werden mit xdg-open geöffnet." : "Nutzt den Ausführen-Dialog (Win+R). Funktioniert auch mit Links und Ordnern."),
+    h("div", { class: "section" }, "Medien"),
+    h("div", { class: "media", style: { gridTemplateColumns: "repeat(6,1fr)" } }, [["prev", "prev"], ["playpause", "playpause"], ["next", "next"], ["voldown", "voldown"], ["mute", "mute"], ["volup", "volup"]].map(([v, ic]) => h("button", { "aria-label": lbl(MEDIA, v), onclick: () => media(v) }, icon(ic))))
+  ];
+}
+function fillPcStatus() {
+  const el = $("#pchero");
+  if (!el) return;
+  const st = S.status, pc = st.pc;
+  const sig = st.rssi > -58 ? 3 : st.rssi > -72 ? 2 : 1;
+  el.className = "card";
+  el.replaceChildren(
+    h("div", { class: "hero " + (pc === 1 ? "on" : pc === 2 ? "sleep" : ""), style: { padding: "2px 0 18px" } },
+      h("div", { class: "big" }, icon(pc === 2 ? "moon" : "pc")),
+      h("div", { class: "grow" }, h("h2", {}, pc === 1 ? "PC ist an" : pc === 2 ? "PC im Standby" : "PC nicht verbunden"),
+        h("div", { class: "muted", style: { fontSize: "13.5px" } }, pc === 1 ? "USB verbunden · bereit für Eingaben" : pc === 2 ? "Mit „Aufwecken“ startest du ihn wieder" : "Ausgeschaltet oder USB getrennt · „Einschalten“ nutzt Wake-on-LAN"))),
+    h("div", { class: "stats" },
+      h("div", {}, h("small", {}, "WLAN"), h("b", { class: "row", style: { gap: "6px" } }, h("span", { class: "bars" }, [1, 2, 3].map(i => h("i", { class: i <= sig ? "on" : "" }))), st.ssid || "–")),
+      h("div", {}, h("small", {}, "Adresse"), h("b", { class: "mono" }, st.ip || "–")),
+      h("div", {}, h("small", {}, "Laufzeit"), h("b", {}, fmtUp(st.uptime)))));
+}
+
+// ================= Einstellungen =================
+function settingsView() {
+  const c = S.cfg;
+  const set = (k, v) => { c[k] = v; saveCfg() };
+  const item = (title, sub, ...right) => h("div", { class: "item" }, h("div", { class: "t" }, h("b", {}, title), sub && h("small", {}, sub)), ...right);
+  const click = (title, sub, fn, danger) => h("div", { class: "item click", style: danger ? { color: "var(--bad)" } : null, onclick: fn }, h("div", { class: "t" }, h("b", {}, title), sub && h("small", {}, sub)), icon("chevron", "chev"));
+  const text = (val, ph, fn, cls) => h("input", { class: "field " + (cls || ""), value: val || "", placeholder: ph, autocapitalize: "off", spellcheck: "false", onchange: e => fn(e.target.value.trim()) });
+  const joy = c.joy;
+
+  const tg = h("div", { class: "list" });
+  const drawTg = () => {
+    const st = S.status;
+    if (!st.tgToken) {
+      const tok = h("input", { class: "field mono", placeholder: "123456789:AA…", autocapitalize: "off", spellcheck: "false" });
+      tg.replaceChildren(
+        h("div", { class: "item" }, h("div", { class: "t" }, h("b", {}, "Steuern von überall"), h("small", {}, "Über einen eigenen Telegram-Bot – ohne Portfreigabe, verschlüsselt."))),
+        h("div", { class: "item" }, h("div", { class: "t muted", style: { fontSize: "13.5px", lineHeight: 1.6 } },
+          "1. In Telegram ", h("b", { class: "mono", style: { display: "inline" } }, "@BotFather"), " öffnen, ", h("span", { class: "mono" }, "/newbot"), " senden.", h("br"),
+          "2. Den erhaltenen Token hier einfügen.", h("br"), "3. Dem neuen Bot den Kopplungscode senden.")),
+        h("div", { class: "item" }, h("div", { class: "grow" }, tok), h("button", { class: "btn sm primary", onclick: async () => { const r = await api("/api/telegram", { token: tok.value }); r.ok ? (toast("Token gespeichert"), refreshStatus()) : toast("Ungültiger Token", true) } }, "Sichern")));
+    } else if (!st.tgLinked) {
+      tg.replaceChildren(
+        h("div", { class: "item" }, h("div", { class: "t" }, h("b", {}, "Bot koppeln"), h("small", {}, "Sende deinem Bot diese Nachricht:"))),
+        h("div", { class: "item" }, h("div", { class: "grow big-code" }, "/pair " + (st.tgCode || "…"))),
+        click("Token entfernen", null, async () => { await api("/api/telegram", { clear: true }); refreshStatus() }, true));
+    } else {
+      tg.replaceChildren(
+        item("Telegram", "Gekoppelt · /menu im Chat öffnet das Bedienfeld", h("span", { class: "dot ok" })),
+        item("Benachrichtigungen", "Online-Meldung, PC an/Standby", toggle(c.notify !== false, v => set("notify", v))),
+        click("Weiteres Gerät koppeln", "Neuer Code: /pair " + (st.tgCode || ""), () => copy("/pair " + st.tgCode)),
+        click("Alle Chats entkoppeln", null, async () => { await api("/api/telegram", { unlink: true }); refreshStatus() }, true),
+        click("Token entfernen", null, async () => { if (confirm("Telegram-Zugang entfernen?")) { await api("/api/telegram", { clear: true }); refreshStatus() } }, true));
+    }
+  };
+  drawTg();
+  S.drawTg = drawTg;
+
+  const rem = h("div", { class: "list" });
+  const drawRem = async () => {
+    if (REMOTE) return;
+    const info = await api("/api/remote");
+    if (!info.host) {
+      const host = h("input", { class: "field mono", placeholder: "xxxx.s1.eu.hivemq.cloud", autocapitalize: "off", spellcheck: "false" });
+      const user = h("input", { class: "field", placeholder: "Benutzer", autocapitalize: "off", spellcheck: "false" });
+      const pass = h("input", { class: "field", type: "password", placeholder: "Passwort", autocomplete: "new-password" });
+      rem.replaceChildren(
+        h("div", { class: "item" }, h("div", { class: "t" }, h("b", {}, "Diese Seite von überall nutzen"), h("small", {}, "Über einen kostenlosen MQTT-Broker – ohne Router-Einstellungen."))),
+        h("div", { class: "item" }, h("div", { class: "t muted", style: { fontSize: "13.5px", lineHeight: 1.6 } },
+          "1. Auf ", h("span", { class: "mono" }, "console.hivemq.cloud"), " kostenlos registrieren, einen Serverless-Cluster anlegen.", h("br"),
+          "2. Unter „Access Management“ Zugangsdaten anlegen (Publish und Subscribe).", h("br"),
+          "3. Cluster-URL, Benutzer und Passwort hier eintragen.")),
+        h("div", { class: "item" }, h("div", { class: "grow stack" }, host, user, pwField(pass),
+          h("button", { class: "btn primary full", onclick: async () => {
+            const r = await api("/api/remote", { host: host.value, user: user.value, pass: pass.value });
+            r.ok ? (toast("Gespeichert – verbinde …"), setTimeout(drawRem, 4000), drawRem()) : toast("Bitte alle Felder ausfüllen", true) } }, "Sichern"))));
+      return;
+    }
+    const link = () => `${(c.remoteUrl || "").replace(/#.*$/, "")}#c=${b64e(JSON.stringify({ h: info.host, u: info.user, p: info.pass, t: info.id, n: c.name }))}`;
+    rem.replaceChildren(
+      item("Broker", info.host, h("span", { class: "dot " + (info.ok ? "ok" : "bad"), title: info.ok ? "Verbunden" : "Nicht verbunden" })),
+      h("div", { class: "item click", onclick: () => linkSheet(link()) }, icon("globe"), h("div", { class: "t" }, h("b", {}, "Link fürs Handy"), h("small", {}, "Einmal öffnen, danach überall nutzbar")), icon("chevron", "chev")),
+      item("Adresse der Web-App", null, text(c.remoteUrl, "https://name.github.io/macropad/", v => set("remoteUrl", v))),
+      click("Neuen Schlüssel erzeugen", "Alte Links funktionieren danach nicht mehr", async () => { if (!confirm("Alle bisherigen Links ungültig machen?")) return; await api("/api/remote", { host: info.host, user: info.user, pass: info.pass, newId: true }); toast("Neuer Schlüssel"); drawRem() }),
+      click("Fernzugriff entfernen", null, async () => { if (!confirm("Web-Fernzugriff entfernen?")) return; await api("/api/remote", { clear: true }); drawRem() }, true));
+  };
+  drawRem();
+
+  const fw = h("input", { type: "file", accept: ".bin", class: "hide", onchange: e => e.target.files[0] && upload(e.target.files[0]) });
+  const imp = h("input", { type: "file", accept: ".json", class: "hide", onchange: async e => { const f = e.target.files[0]; if (!f) return; try { const j = JSON.parse(await f.text()); if (!j.profiles) throw 0; S.cfg = j; await saveCfg(true); renderView() } catch (_) { toast("Ungültige Datei", true) } } });
+
+  return [topBar("Einstellungen"),
+    h("div", { class: "section" }, "Darstellung"),
+    h("div", { class: "list" },
+      h("div", { class: "item" }, h("div", { class: "grow" }, seg([["system", "Automatisch"], ["light", "Hell"], ["dark", "Dunkel"]], store.get("theme", "system"), v => { store.set("theme", v); applyTheme() })))),
+
+    h("div", { class: "section" }, "Computer"),
+    h("div", { class: "list" },
+      h("div", { class: "item" }, h("div", { class: "t" }, h("b", {}, "Betriebssystem")), h("div", { style: { width: "210px" } }, seg([["windows", "Windows"], ["linux", "Linux"]], c.os, v => { set("os", v) }))),
+      h("div", { class: "item" }, h("div", { class: "t" }, h("b", {}, "Tastaturlayout"), h("small", {}, "Wie am PC eingestellt")), h("div", { style: { width: "210px" } }, seg([["de", "Deutsch"], ["us", "US"]], c.layout, v => set("layout", v)))),
+      c.os === "linux" && item("Terminal-Kürzel", "Öffnet das Terminal für Befehle", text(c.termKey, "ctrl+alt+t", v => set("termKey", v || "ctrl+alt+t"), "mono")),
+      item(c.os === "linux" ? "Wartezeit Terminal" : "Wartezeit Ausführen-Dialog", "Bevor getippt wird", ...slider(150, 2500, 50, c.os === "linux" ? c.termDelay : c.runDelay, v => set(c.os === "linux" ? "termDelay" : "runDelay", v), v => v + " ms"))),
+
+    h("div", { class: "section" }, "Joystick"),
+    h("div", { class: "list" },
+      h("div", { class: "item" }, h("div", { class: "grow" }, seg([["arrows", "Pfeile"], ["mouse", "Maus"], ["scroll", "Scrollen"], ["custom", "Eigene"]], joy.mode, v => { joy.mode = v; saveCfg() }))),
+      item("Wiederholen nach", "Pfeiltaste gehalten", ...slider(150, 1000, 25, joy.repeatDelay, v => { joy.repeatDelay = v; saveCfg() }, v => v + " ms")),
+      item("Wiederholrate", null, ...slider(15, 200, 5, joy.repeatRate, v => { joy.repeatRate = v; saveCfg() }, v => Math.round(1000 / v) + "/s")),
+      item("Maustempo", "Im Maus-Modus", ...slider(1, 30, 1, joy.mouseSpeed, v => { joy.mouseSpeed = v; saveCfg() }, v => v))),
+
+    h("div", { class: "section" }, "Energie"),
+    h("div", { class: "list" },
+      h("div", { class: "item" }, h("div", { class: "t" }, h("b", {}, "Ausschalten per"), h("small", {}, c.powerMethod === "hid" ? "Power-Taste: folgt der Energieoption des PCs" : "Befehl: zuverlässig, PC muss entsperrt sein")),
+        h("div", { style: { width: "190px" } }, seg([["cmd", "Befehl"], ["hid", "Power-Taste"]], c.powerMethod, v => { set("powerMethod", v); renderView() }))),
+      h("div", { class: "item" }, h("div", { class: "t" }, h("b", {}, "Standby per"), h("small", {}, c.sleepMethod === "hid" ? "Schlaf-Taste: funktioniert auch gesperrt" : "Befehl")),
+        h("div", { style: { width: "190px" } }, seg([["hid", "Schlaf-Taste"], ["cmd", "Befehl"]], c.sleepMethod, v => { set("sleepMethod", v); renderView() }))),
+      item("Wake-on-LAN", "MAC-Adresse der Netzwerkkarte des PCs", text(c.wol.mac, "AA:BB:CC:DD:EE:FF", v => { c.wol.mac = v.toUpperCase(); saveCfg() }, "mono"))),
+
+    REMOTE ? [h("div", { class: "section" }, "Fernzugriff"),
+      h("div", { class: "list" },
+        h("div", { class: "item" }, h("div", { class: "t" }, h("b", {}, "Über die Cloud verbunden"), h("small", {}, "WLAN, Passwort, Telegram und Firmware nur im Heimnetz änderbar")), h("span", { class: "dot " + (S.wsOk ? "ok" : "bad") })),
+        click("Dieses Gerät trennen", "Entfernt die gespeicherten Zugangsdaten aus diesem Browser", () => { if (confirm("Verbindung entfernen?")) { store.set("remote", null); location.reload() } }, true))]
+    : [h("div", { class: "section" }, "Web-Fernzugriff"), rem,
+      h("div", { class: "section" }, "Telegram"), tg],
+
+    !REMOTE && h("div", { class: "section" }, "Gerät"),
+    !REMOTE && h("div", { class: "list" },
+      item("Name", "http://" + c.name + ".local", text(c.name, "macropad", v => { const n = v.toLowerCase().replace(/[^a-z0-9-]/g, ""); if (n) set("name", n) })),
+      item("Status-LED", "RGB-LED auf GPIO 48", toggle(c.led !== false, v => set("led", v))),
+      click("WLAN ändern", S.status.ssid ? "Verbunden mit " + S.status.ssid : null, wifiSheet),
+      click("Passwort ändern", null, pwSheet),
+      click("Abmelden", null, async () => { await api("/api/logout", {}); S.ws && S.ws.close(); S.mode = "login"; render() })),
+
+    !REMOTE && h("div", { class: "section" }, "Wartung"),
+    !REMOTE && h("div", { class: "list" },
+      click("Firmware aktualisieren", ".bin-Datei aus build/macropad.ino.bin", () => fw.click()),
+      click("Konfiguration sichern", "Als JSON herunterladen", () => { location.href = "/api/export" }),
+      click("Konfiguration laden", null, () => imp.click()),
+      click("Neu starten", null, async () => { await api("/api/reboot", {}); toast("Startet neu …"); setTimeout(() => location.reload(), 6000) }),
+      click("Auf Werkseinstellungen", "Löscht WLAN, Passwort und alle Profile", async () => { if (!confirm("Wirklich alles zurücksetzen? Danach musst du das MacroPad neu einrichten (WLAN „MacroPad-Setup“).")) return; await api("/api/factory", {}); toast("Zurückgesetzt") }, true)),
+    fw, imp,
+
+    h("div", { class: "section" }, "Info"),
+    h("div", { class: "list", id: "info" }),
+    h("p", { class: "dim", style: { fontSize: "12.5px", margin: "14px 4px 0", lineHeight: 1.6 } },
+      "Tasten: GPIO 4, 5, 6, 7, 15, 17 · Joystick: hoch 1, runter 2, links 18, rechts 8, drücken 3 (alle gegen GND).", h("br"),
+      "Taste 1 + Taste 6 für 5 Sekunden halten setzt das Gerät zurück.")
+  ];
+}
+async function refreshStatus() { const r = await api("/api/state"); if (r.status) S.status = r.status; S.drawTg && S.drawTg() }
+function fillInfo() {
+  const el = $("#info");
+  if (!el) return;
+  const st = S.status;
+  const row = (k, v) => h("div", { class: "item" }, h("div", { class: "t" }, h("b", {}, k)), h("span", { class: "v mono" }, v));
+  el.replaceChildren(row("Firmware", st.ver || S.ver || "–"), row("IP-Adresse", st.ip || "–"), row("MAC", st.mac || "–"), row("Signal", st.rssi ? st.rssi + " dBm" : "–"),
+    row("Freier RAM", st.heap ? Math.round(st.heap / 1024) + " KB · PSRAM " + Math.round(st.psram / 1024 / 1024 * 10) / 10 + " MB" : "–"), row("Laufzeit", fmtUp(st.uptime)));
+}
+
+function upload(file) {
+  const bar = h("div", { style: { height: "6px", borderRadius: "6px", background: "var(--surface-3)", overflow: "hidden", margin: "10px 0" } }, h("div", { style: { height: "100%", width: "0%", background: "var(--text)", transition: "width .2s" } }));
+  const label = h("div", { class: "muted" }, file.name);
+  const close = sheet("Firmware-Update", () => h("div", {}, label, bar, h("p", { class: "dim", style: { fontSize: "13px" } }, "Nicht vom Strom trennen. Das Gerät startet danach neu.")));
+  const xhr = new XMLHttpRequest();
+  xhr.open("POST", "/api/update");
+  xhr.upload.onprogress = e => { if (e.lengthComputable) bar.firstChild.style.width = (e.loaded / e.total * 100).toFixed(1) + "%" };
+  xhr.onload = () => { if (xhr.status === 200) { label.textContent = "Fertig. Startet neu …"; setTimeout(() => location.reload(), 9000) } else { label.textContent = "Fehlgeschlagen: " + xhr.responseText; label.style.color = "var(--bad)" } };
+  xhr.onerror = () => { label.textContent = "Verbindung abgebrochen"; };
+  const fd = new FormData(); fd.append("firmware", file); xhr.send(fd);
+}
+
+function linkSheet(url) {
+  sheet("Link fürs Handy", () => h("div", { class: "stack" },
+    h("p", { class: "muted", style: { margin: 0 } }, "Öffne diesen Link auf deinem Handy und füge die Seite zum Startbildschirm hinzu. Der Link enthält die Zugangsdaten – behandle ihn wie ein Passwort."),
+    h("div", { class: "field mono", style: { height: "auto", padding: "12px 14px", wordBreak: "break-all", fontSize: "12px", userSelect: "all" } }, url),
+    h("div", { class: "row" },
+      h("button", { class: "btn grow", onclick: () => copy(url) }, icon("copy"), "Kopieren"),
+      navigator.share && h("button", { class: "btn grow", onclick: () => navigator.share({ title: "MacroPad", url }).catch(() => {}) }, "Teilen"),
+      h("a", { class: "btn primary grow", href: url, target: "_blank", rel: "noopener", style: { textDecoration: "none" } }, "Öffnen"))));
+}
+
+function pwSheet() {
+  const o = h("input", { class: "field", type: "password", placeholder: "Aktuelles Passwort", autocomplete: "current-password" });
+  const n = h("input", { class: "field", type: "password", placeholder: "Neues Passwort (min. 6)", autocomplete: "new-password" });
+  const err = h("div", { class: "err" });
+  sheet("Passwort ändern", () => h("div", { class: "stack" }, pwField(o), pwField(n), err), [["Abbrechen"], ["Ändern", async close => {
+    const r = await api("/api/password", { old: o.value, new: n.value });
+    if (r.ok) { toast("Passwort geändert"); close() } else err.textContent = r.err === "pwshort" ? "Mindestens 6 Zeichen." : "Aktuelles Passwort falsch.";
+  }, "primary"]]);
+}
+
+function wifiSheet() {
+  const st = { nets: null, ssid: "", pass: "" };
+  const body = h("div");
+  const pass = h("input", { class: "field", type: "password", placeholder: "Passwort", oninput: e => st.pass = e.target.value });
+  const draw = () => body.replaceChildren(
+    st.nets ? h("div", { class: "list nets" }, st.nets.map(n => h("div", { class: "item click" + (st.ssid === n.ssid ? " net sel" : ""), onclick: () => { st.ssid = n.ssid; draw(); pass.focus() } }, h("div", { class: "t" }, h("b", {}, n.ssid)), n.lock && icon("lock", "dim"), st.ssid === n.ssid && icon("check"))))
+      : h("div", { class: "row muted", style: { padding: "10px 4px" } }, h("div", { class: "spin" }), "Suche Netzwerke …"),
+    h("div", { style: { marginTop: "14px" } }, h("input", { class: "field", placeholder: "oder Name manuell", value: st.ssid, oninput: e => st.ssid = e.target.value.trim() })),
+    h("div", { style: { marginTop: "10px" } }, pwField(pass)),
+    h("p", { class: "dim", style: { fontSize: "12.5px" } }, "Das MacroPad testet die Verbindung. Klappt sie, startet es im neuen Netz neu."));
+  const scan = async () => { const r = await api("/api/scan"); if (r.status === 202 || !r.nets) return setTimeout(scan, 900); st.nets = r.nets.sort((a, b) => b.rssi - a.rssi); draw() };
+  draw(); scan();
+  sheet("WLAN ändern", () => body, [["Abbrechen"], ["Verbinden", async close => {
+    if (!st.ssid) return;
+    const r = await api("/api/setup", { ssid: st.ssid, pass: st.pass });
+    if (!r.ok) return toast("Fehlgeschlagen", true);
+    toast("Teste Verbindung …"); close();
+    const t0 = Date.now();
+    const poll = async () => { const s = await api("/api/setup/status"); if (s.state === "ok") { toast("Verbunden – startet neu"); setTimeout(() => location.href = `http://${s.ip}/`, 9000) } else if (s.state === "fail") toast("Verbindung fehlgeschlagen", true); else if (Date.now() - t0 < 30000) setTimeout(poll, 1000) };
+    setTimeout(poll, 1500);
+  }, "primary"]]);
+}
+
+loadState();
+</script>
+</body>
+</html>
