@@ -1240,6 +1240,9 @@ function settingsView() {
       item("Wiederholrate", null, ...slider(15, 200, 5, joy.repeatRate, v => { joy.repeatRate = v; saveCfg() }, v => Math.round(1000 / v) + "/s")),
       item("Maustempo", "Im Maus-Modus", ...slider(1, 30, 1, joy.mouseSpeed, v => { joy.mouseSpeed = v; saveCfg() }, v => v))),
 
+    h("div", { class: "section" }, "LED & Buzzer"),
+    alertList(c),
+
     h("div", { class: "section" }, "Energie"),
     h("div", { class: "list" },
       h("div", { class: "item" }, h("div", { class: "t" }, h("b", {}, "Ausschalten per"), h("small", {}, c.powerMethod === "hid" ? "Power-Taste: folgt der Energieoption des PCs" : "Befehl: zuverlässig, PC muss entsperrt sein")),
@@ -1279,6 +1282,40 @@ function settingsView() {
       "Taste 1 + Taste 6 für 5 Sekunden halten setzt das Gerät zurück.")
   ];
 }
+function alertList(c) {
+  const al = c.alert = Object.assign({ on: true, ledPin: 9, buzzPin: 10, buzzType: "active", invert: false, bright: 255, tone: 2700, ringSecs: 45,
+    busy: true, done: true, question: true, ring: true, ringBuzz: true }, c.alert || {});
+  const set = (k, v) => { al[k] = v; saveCfg() };
+  const PINS = [9, 10, 11, 12, 13, 14, 46];
+  const pinSel = k => h("select", { class: "field", style: { width: "120px" }, onchange: e => set(k, +e.target.value) },
+    PINS.map(p => h("option", { value: p, selected: al[k] === p }, "GPIO " + p)));
+  const row = (title, sub, ...right) => h("div", { class: "item" }, h("div", { class: "t" }, h("b", {}, title), sub && h("small", {}, sub)), ...right);
+  const test = s => () => { haptic(); wsSend({ a: "alert", s }) || api("/api/alert", { s }) };
+  const tokenRow = h("div", { class: "item" }, h("div", { class: "t" }, h("b", {}, "Token für den PC"), h("small", {}, "Für Claude-Code-Hooks und den Discord-Wächter")), h("span", { class: "v mono" }, "…"));
+  if (!REMOTE) api("/api/hook").then(r => r.token && tokenRow.replaceChildren(tokenRow.firstChild, h("button", { class: "btn sm", onclick: () => copy(r.token) }, icon("copy"), "Kopieren")));
+  return h("div", { class: "list" },
+    row("LED & Buzzer", "Statusanzeige für Claude Code und Discord", toggle(al.on, v => set("on", v))),
+    row("LED-Pin", "+ über 220 Ω an den Pin, − an GND", pinSel("ledPin")),
+    row("Buzzer-Pin", "I/O an den Pin, VCC an 3V3, GND an GND", pinSel("buzzPin")),
+    h("div", { class: "item" }, h("div", { class: "t" }, h("b", {}, "Buzzer-Art"), h("small", {}, al.buzzType === "passive" ? "Passiv: braucht einen Ton (Frequenz)" : "Aktiv: piept selbst, wenn Strom anliegt")),
+      h("div", { style: { width: "190px" } }, seg([["active", "Aktiv"], ["passive", "Passiv"]], al.buzzType, v => { set("buzzType", v); renderView() }))),
+    al.buzzType === "passive"
+      ? row("Tonhöhe", null, ...slider(500, 5000, 100, al.tone, v => set("tone", v), v => v + " Hz"))
+      : row("Signal umkehren", "Falls der Buzzer dauernd piept oder nie", toggle(al.invert, v => set("invert", v))),
+    row("LED-Helligkeit", null, ...slider(10, 255, 5, al.bright, v => set("bright", v), v => Math.round(v / 2.55) + " %")),
+    row("Claude denkt", "LED leuchtet", toggle(al.busy, v => set("busy", v))),
+    row("Claude ist fertig", "LED aus, Buzzer piept 2×", toggle(al.done, v => set("done", v))),
+    row("Claude hat eine Frage", "LED blinkt", toggle(al.question, v => set("question", v))),
+    row("Discord-Anruf", "LED blinkt", toggle(al.ring, v => set("ring", v))),
+    row("Discord-Anruf: Buzzer", "Piept an-aus, bis du rangehst oder eine Taste drückst", toggle(al.ringBuzz, v => set("ringBuzz", v))),
+    row("Klingeln höchstens", null, ...slider(10, 120, 5, al.ringSecs, v => set("ringSecs", v), v => v + " s")),
+    h("div", { class: "item" }, h("div", { class: "kgrid", style: { width: "100%" } },
+      h("button", { class: "k", onclick: test("busy") }, "Denkt"), h("button", { class: "k", onclick: test("done") }, "Fertig"),
+      h("button", { class: "k", onclick: test("question") }, "Frage"), h("button", { class: "k", onclick: test("ring") }, "Anruf"))),
+    h("div", { class: "item" }, h("button", { class: "btn full", onclick: () => { test("ringstop")(); test("idle")() } }, "Alles aus")),
+    !REMOTE && tokenRow);
+}
+
 async function refreshStatus() { const r = await api("/api/state"); if (r.status) S.status = r.status; S.drawTg && S.drawTg() }
 function fillInfo() {
   const el = $("#info");
