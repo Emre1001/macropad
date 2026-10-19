@@ -545,6 +545,7 @@ function onEvent(m) {
   else if (m.ev === "profile") { if (S.cfg) { S.cfg.active = m.i; if (S.tab === "pad" && !$(".sheet")) renderView() } }
   else if (m.ev === "status") { S.status = m.d; updStatus() }
   else if (m.ev === "pc") { S.status.pc = m.s; updStatus() }
+  else if (m.ev === "lamp") { S.status.lamp = m.d; fillLamp() }
   else if (m.ev === "config") { if (!$(".sheet")) loadState() }
 }
 
@@ -556,7 +557,7 @@ function updConn() {
   c.replaceChildren(h("i", { class: "dot " + (!S.wsOk ? "bad" : pc === 1 ? "ok" : pc === 2 ? "warn" : "") }),
     !S.wsOk ? (REMOTE && R.ok ? "MacroPad offline" : "Getrennt") : pc === 1 ? "PC verbunden" : pc === 2 ? "PC im Standby" : "PC nicht verbunden");
 }
-function updStatus() { updConn(); if (S.tab === "pc") fillPcStatus(); if (S.tab === "settings") fillInfo() }
+function updStatus() { updConn(); if (S.tab === "pc") { fillPcStatus(); fillLamp() } if (S.tab === "settings") fillInfo() }
 
 // ================= Start =================
 async function loadState() {
@@ -761,7 +762,7 @@ function renderView() {
   const v = { pad: padView, mouse: mouseView, keys: keysView, pc: pcView, settings: settingsView }[S.tab] || padView;
   m.replaceChildren(h("div", { class: "view" }, v()));
   updConn();
-  if (S.tab === "pc") fillPcStatus();
+  if (S.tab === "pc") { fillPcStatus(); fillLamp() }
   if (S.tab === "settings") fillInfo();
 }
 
@@ -779,7 +780,7 @@ function stepHint(steps) {
   if (!steps || !steps.length) return "Nicht belegt";
   const s = steps[0], more = steps.length > 1 ? ` · +${steps.length - 1}` : "";
   const t = { combo: () => prettyCombo(s.v), key: () => prettyCombo(s.v), raw: () => prettyCombo(s.v), text: () => `„${s.v}“`, media: () => lbl(MEDIA, s.v), power: () => lbl(POWER, s.v), mouse: () => lbl(MOUSE, s.v),
-    delay: () => `${s.v} ms warten`, run: () => s.v, url: () => s.v.replace(/^https?:\/\//, ""), profile: () => "Profil: " + s.v }[s.t];
+    delay: () => `${s.v} ms warten`, light: () => lbl(LIGHT, s.v), run: () => s.v, url: () => s.v.replace(/^https?:\/\//, ""), profile: () => "Profil: " + s.v }[s.t];
   return (t ? t() : s.t) + more;
 }
 function profile() { return S.cfg.profiles[S.cfg.active] || S.cfg.profiles[0] }
@@ -859,7 +860,9 @@ function sheet(title, content, buttons, onClose) {
 }
 
 // ================= Aktionseditor =================
-const STEP_TYPES = [["combo", "Tastenkombi"], ["text", "Text tippen"], ["media", "Medien"], ["power", "Power"], ["mouse", "Maus"], ["run", "Programm"], ["url", "Webseite"], ["delay", "Pause"], ["profile", "Profil"]];
+const LIGHT = [["lamp:toggle", "Nachtlicht umschalten"], ["lamp:on", "Nachtlicht an"], ["lamp:off", "Nachtlicht aus"], ["lamp:mode:breathe", "Nachtlicht atmen"],
+  ["lamp:timer:30", "Nachtlicht 30 min"], ["nag:5", "Buzzer 5 s nerven"], ["nag:30", "Buzzer 30 s nerven"], ["nag:stop", "Buzzer stopp"]];
+const STEP_TYPES = [["combo", "Tastenkombi"], ["text", "Text tippen"], ["media", "Medien"], ["power", "Power"], ["mouse", "Maus"], ["run", "Programm"], ["url", "Webseite"], ["delay", "Pause"], ["profile", "Profil"], ["light", "Licht & Ton"]];
 function presets() {
   const L = os() === "linux";
   return [
@@ -874,6 +877,7 @@ function presets() {
     ["Play/Pause", "#bf5af2", [{ t: "media", v: "playpause" }]], ["Weiter", "#bf5af2", [{ t: "media", v: "next" }]], ["Zurück", "#bf5af2", [{ t: "media", v: "prev" }]],
     ["Stumm", "#bf5af2", [{ t: "media", v: "mute" }]], ["Lauter", "#bf5af2", [{ t: "media", v: "volup" }]], ["Leiser", "#bf5af2", [{ t: "media", v: "voldown" }]],
     ["Mikro aus (Teams)", "#ff6482", [{ t: "combo", v: "ctrl+shift+m" }]], ["Mikro aus (Discord)", "#ff6482", [{ t: "combo", v: "ctrl+shift+m" }]],
+    ["Nachtlicht", "#ffd60a", [{ t: "light", v: "lamp:toggle" }]],
     ["Sperren", "#ff453a", [{ t: "power", v: "lock" }]], ["Standby", "#ff9f0a", [{ t: "power", v: "sleep" }]],
     ["YouTube", "#ff453a", [{ t: "url", v: "https://youtube.com" }]], ["Gruß", "#ffd60a", [{ t: "text", v: "Mit freundlichen Grüßen\n" }]],
   ];
@@ -885,6 +889,7 @@ function valueInput(s, onchange) {
     case "media": return sel(MEDIA);
     case "power": return sel(POWER);
     case "mouse": return sel(MOUSE);
+    case "light": return sel(LIGHT);
     case "profile": return sel([["next", "Nächstes Profil"], ["prev", "Vorheriges Profil"], ...S.cfg.profiles.map((p, i) => [String(i), p.name])]);
     case "delay": return h("input", { class: "field", type: "number", min: 0, max: 30000, step: 50, value: s.v, inputmode: "numeric", oninput: e => { s.v = Math.max(0, Math.min(30000, +e.target.value || 0)); onchange() } });
     case "text": return h("textarea", { class: "field", rows: 2, style: { minHeight: "42px" }, placeholder: "Text, auch mehrzeilig", value: s.v, oninput: e => { s.v = e.target.value; onchange() } });
@@ -935,7 +940,7 @@ function actionSheet(arr, idx, title) {
   const drawSteps = () => {
     list.replaceChildren(...(a.steps.length ? a.steps.map((s, i) => {
       const val = h("div", { class: "val" }, valueInput(s, () => {}));
-      const type = h("select", { class: "field", "aria-label": "Art", onchange: e => { s.t = e.target.value; s.v = { media: "playpause", power: "lock", mouse: "left", delay: 200, profile: "next" }[s.t] ?? ""; drawSteps() } },
+      const type = h("select", { class: "field", "aria-label": "Art", onchange: e => { s.t = e.target.value; s.v = { media: "playpause", power: "lock", mouse: "left", delay: 200, profile: "next", light: "lamp:toggle" }[s.t] ?? ""; drawSteps() } },
         STEP_TYPES.map(([v, l]) => h("option", { value: v, selected: (s.t === "key" || s.t === "raw" ? "combo" : s.t) === v }, l)));
       return h("div", { class: "step" }, type, val, h("div", { class: "acts" },
         i > 0 && h("button", { class: "icon-btn", "aria-label": "Nach oben", onclick: () => { a.steps.splice(i - 1, 0, a.steps.splice(i, 1)[0]); drawSteps() } }, icon("up2")),
@@ -1133,6 +1138,8 @@ function pcView() {
       tap("good", "bolt", "Einschalten", "Wake-on-LAN", pw("wol")),
       hold("", "snow", "Ruhezustand", "Halten", pw("hibernate")),
       hold("", "logout", "Abmelden", "Halten", pw("logout"))),
+    h("div", { class: "section" }, "Licht & Ton"),
+    h("div", { class: "card", id: "lampcard" }),
     h("div", { class: "section" }, "Ausführen"),
     h("div", { class: "row" }, h("div", { class: "grow" }, cmd), h("button", { class: "btn primary", onclick: go }, "Start")),
     h("p", { class: "dim", style: { fontSize: "12.5px", margin: "8px 4px 0" } }, os() === "linux" ? "Öffnet ein Terminal (" + (S.cfg.termKey || "ctrl+alt+t") + ") und startet den Befehl im Hintergrund. Links werden mit xdg-open geöffnet." : "Nutzt den Ausführen-Dialog (Win+R). Funktioniert auch mit Links und Ordnern."),
@@ -1140,6 +1147,38 @@ function pcView() {
     h("div", { class: "media", style: { gridTemplateColumns: "repeat(6,1fr)" } }, [["prev", "prev"], ["playpause", "playpause"], ["next", "next"], ["voldown", "voldown"], ["mute", "mute"], ["volup", "volup"]].map(([v, ic]) => h("button", { "aria-label": lbl(MEDIA, v), onclick: () => media(v) }, icon(ic))))
   ];
 }
+const alertCmd = s => wsSend({ a: "alert", s }) || api("/api/alert", { s });
+let brightT, holdIv = null;
+function fillLamp() {
+  const el = $("#lampcard");
+  if (holdIv) return;  // Piep-Knopf wird gehalten: Karte nicht austauschen, sonst fehlt das Loslassen
+  if (!el || el.contains(document.activeElement) && document.activeElement.type === "range") return;  // beim Ziehen nicht neu zeichnen
+  const L = Object.assign({ on: false, b: 60, m: "solid", left: 0, nag: 0 }, S.status.lamp || {});
+  const chip = (label, active, fn) => h("button", { class: "chip", "aria-pressed": String(!!active), onclick: () => { haptic(); fn() } }, label);
+  const hold = h("button", { class: "btn full", style: { height: "56px", marginTop: "10px", touchAction: "none" } }, icon("volup"), "Gedrückt halten zum Piepen");
+  const up = () => { if (!holdIv) return; clearInterval(holdIv); holdIv = null; hold.classList.remove("primary"); alertCmd("buzz:off") };
+  hold.addEventListener("pointerdown", e => { e.preventDefault(); hold.setPointerCapture(e.pointerId); hold.classList.add("primary"); haptic(8); alertCmd("buzz:on"); clearInterval(holdIv); holdIv = setInterval(() => alertCmd("buzz:on"), 700) });
+  hold.addEventListener("pointerup", up); hold.addEventListener("pointercancel", up);
+  hold.addEventListener("contextmenu", e => e.preventDefault());
+  const [range, out] = slider(1, 255, 1, L.b, v => { clearTimeout(brightT); brightT = setTimeout(() => alertCmd("lamp:bright:" + v), 60) }, v => Math.round(v / 2.55) + " %");
+  el.replaceChildren(
+    h("div", { class: "row" },
+      h("div", { class: "grow" }, h("b", { style: { fontWeight: 600, fontSize: "16px" } }, "Nachtlicht"),
+        h("div", { class: "dim", style: { fontSize: "12.5px" } }, L.on ? (L.left ? `An · geht in ${Math.ceil(L.left / 60)} min aus` : "An") : "Aus")),
+      toggle(L.on, v => alertCmd(v ? "lamp:on" : "lamp:off"))),
+    h("div", { class: "row", style: { marginTop: "12px" } }, icon("sun", "dim"), h("div", { class: "grow" }, range), out),
+    h("div", { style: { marginTop: "10px" } }, seg([["solid", "Konstant"], ["breathe", "Atmen"], ["blink", "Blinken"]], L.m, v => alertCmd("lamp:mode:" + v))),
+    h("div", { class: "chips", style: { margin: "12px 0 0", padding: 0 } }, h("span", { class: "dim", style: { alignSelf: "center", fontSize: "13px", marginRight: "2px" } }, "Ausschalten nach"),
+      [[0, "nie"], [15, "15 min"], [30, "30 min"], [60, "1 h"], [120, "2 h"]].map(([m, l]) => chip(l, L.on && (m ? L.left > 0 && Math.abs(L.left / 60 - m) < 1.5 : !L.left), () => alertCmd("lamp:timer:" + m)))),
+    h("div", { style: { borderTop: "1px solid var(--line)", margin: "16px -18px 0", padding: "14px 18px 0" } },
+      h("div", { class: "row" }, h("div", { class: "grow" }, h("b", { style: { fontWeight: 600, fontSize: "16px" } }, "Buzzer"),
+        h("div", { class: "dim", style: { fontSize: "12.5px" } }, L.nag ? `Nervt noch ${L.nag} s` : "Bereit"))),
+      hold,
+      h("div", { class: "chips", style: { margin: "10px 0 0", padding: 0 } },
+        chip("Nerven 5 s", false, () => alertCmd("nag:5")), chip("15 s", false, () => alertCmd("nag:15")), chip("30 s", false, () => alertCmd("nag:30")),
+        chip("Stopp", false, () => { alertCmd("nag:stop"); alertCmd("buzz:off") }))));
+}
+
 function fillPcStatus() {
   const el = $("#pchero");
   if (!el) return;
