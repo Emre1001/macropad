@@ -572,7 +572,20 @@ async function loadState() {
   if (r.cfg) S.cfg = r.cfg;
   if (r.status) S.status = r.status;
   render();
-  if (S.mode === "app" && !REMOTE) connectWs();
+  if (S.mode === "app" && !REMOTE) { connectWs(); appSync() }
+}
+
+// In der Android-App: Fernzugriff einschalten und den Kopplungslink an die App übergeben,
+// damit sie sich unterwegs ohne weiteres Zutun über die Cloud verbindet.
+let synced = false;
+async function appSync() {
+  if (synced || !window.MacroPadApp || !S.cfg) return;
+  synced = true;
+  let i = await api("/api/remote");
+  if (!i.host) { await api("/api/remote", { host: "" }); i = await api("/api/remote") }
+  if (!i.host || !i.id || !i.key) { synced = false; return }
+  const base = (S.cfg.remoteUrl || "").replace(/#.*$/, "");
+  if (base) window.MacroPadApp.saveLink(`${base}#c=${b64e(JSON.stringify({ h: i.host, t: i.id, k: i.key, n: S.cfg.name }))}`);
 }
 function splashMsg(t) {
   const sp = $(".splash");
